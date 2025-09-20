@@ -6,6 +6,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useSignIn } from "@/lib/query/api";
+import { validateSignUpData } from "@/lib/utils";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
@@ -13,39 +15,28 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+
+  const signInMutation = useSignIn();
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    const formData = {
+      email,
+      password,
+    };
+    if (validateSignUpData(formData)) {
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast({
-          title: "Sign In Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
-        });
-        navigate("/");
+      try {
+        await signInMutation.mutateAsync(formData);
+        // Handle successful signup (e.g., redirect to dashboard)
+        console.log('Account created successfully');
+      } catch (error) {
+        console.error('Signup failed:', error);
+        // Handle signup error
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      toast({
-        title: "An error occurred",
-        description: "Please try again later.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
 

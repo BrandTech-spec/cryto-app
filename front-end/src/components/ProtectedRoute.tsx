@@ -12,33 +12,9 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   const { user, loading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [adminLoading, setAdminLoading] = useState(requireAdmin);
+  
 
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (!user || !requireAdmin) {
-        setAdminLoading(false);
-        return;
-      }
-
-      try {
-        const { data } = await supabase
-          .from('admin_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .single();
-
-       
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-      } finally {
-        setAdminLoading(false);
-      }
-    };
-
-    checkAdminStatus();
-  }, [user, requireAdmin]);
-
+ 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -49,9 +25,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     );
   }
 
-  if (!user) {
-    return <Navigate to="/signin" replace />;
-  }
 
  
 

@@ -4,11 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Bell, CheckCircle, AlertTriangle, DollarSign, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUserNotifications } from "@/lib/query/api";
+import { useUserContext } from "@/context/AuthProvider";
 
 const UserNotifications = () => {
-  const { userId } = useParams();
+ // const { userId } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user } = useUserContext();
+  const {data, isPending} = useUserNotifications(user?.user_id)
 
   // Mock user data - replace with real data from backend
   const users = [
@@ -16,6 +19,8 @@ const UserNotifications = () => {
     { id: "2", name: "Jane Smith", email: "jane@example.com" },
     { id: "3", name: "Mike Johnson", email: "mike@example.com" },
   ];
+
+  const userId = "1"
 
   // Mock notifications for this user - replace with real data from backend
   const userNotifications = [

@@ -9,77 +9,54 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, Bell, CheckCircle, DollarSign, Edit3, MessageSquare, Users, Wallet, Clock, TrendingUp, X, Check } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { useAdmin } from "@/hooks/useAdmin";
-import { supabase } from "@/integrations/supabase/client";
+import { useGetAllUser, useUpdateUser } from "@/lib/query/api";
+import { User } from "@/lib/appwrite/appWriteConfig";
+import { Models } from "appwrite";
+import  { MessageIconWithCounter } from "@/components/Avatar";
+import { useUserContext } from "@/context/AuthProvider";
+import { set } from "date-fns";
+import { toast } from "sonner";
 
 const Admin = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [balanceAmount, setBalanceAmount] = useState("");
+  const [profite, setProfite] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
-
-  const {
-    users,
-    transactions,
-    stats,
-    loading,
-    isAdmin,
-    updateUserBalance,
-    processTransaction
-  } = useAdmin();
-
+  const { user } = useUserContext()
   // Check authentication and redirect if not admin
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
-      
-      if (!user) {
-        navigate('/signin');
-        return;
-      }
-    };
-
-    checkAuth();
-  }, [navigate]);
-
+  const { data: users, isPending } = useGetAllUser()
+  const { mutateAsync: update, isPending: isUpdating } = useUpdateUser()
   // Redirect if not admin
-  useEffect(() => {
-    if (!loading  ) {
-      toast({
-        title: "Access Denied",
-        description: "You don't have admin privileges",
-        variant: "destructive",
-      });
-      
-    }
-  }, [loading, currentUser, isAdmin, navigate, toast]);
 
   const handleBalanceUpdate = async (userId: string) => {
-    if (!balanceAmount) return;
-    
-    const success = await updateUserBalance(userId, parseFloat(balanceAmount));
-    if (success) {
+    if (!balanceAmount || !profite) return;
+    const formData = {
+      userId,
+      payload:{
+        profite:parseFloat(profite),
+        amount:parseFloat(balanceAmount)
+      }
+    }
+
+    try {
+
+     const u =  await update(formData)
+     toast.error("user succefully updated")
+
+    } catch (error) {
+      console.log(error);
+      toast.error("some thing went wrong please try again")
+
+    } finally {
       setBalanceAmount("");
       setSelectedUser(null);
+      setProfite('')
     }
+
   };
 
-  if (loading) {
-    return (
-      <div className="container mx-auto p-6 flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <div className="text-lg">Loading admin dashboard...</div>
-        </div>
-      </div>
-    );
-  }
 
-  if (!currentUser) {
-    return null; // Will redirect to signin
-  }
 
 
 
@@ -103,21 +80,10 @@ const Admin = () => {
             <Users className="w-4 h-4" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="transactions" className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" />
-            Transactions
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="flex items-center gap-2">
-            <MessageSquare className="w-4 h-4" />
-            Messages
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="w-4 h-4" />
-            Notifications
-          </TabsTrigger>
+          
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-4">
+        {/*<TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -163,7 +129,7 @@ const Admin = () => {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
+        </TabsContent>*/}
 
         <TabsContent value="users" className="space-y-4">
           <Card>
@@ -173,38 +139,6 @@ const Admin = () => {
             </CardHeader>
             <CardContent>
               <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Username</TableHead>
-                    <TableHead>User ID</TableHead>
-                    <TableHead>Balance</TableHead>
-                    <TableHead>Join Date</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {users.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.username}</TableCell>
-                      <TableCell className="text-muted-foreground">{user.id.slice(0, 8)}...</TableCell>
-                      <TableCell>${(user.balance || 0).toLocaleString()}</TableCell>
-                      <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedUser(user.id)}
-                          className="mr-2"
-                        >
-                          <Edit3 className="w-4 h-4 mr-1" />
-                          Edit Balance
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
               {selectedUser && (
                 <Card className="mt-4">
                   <CardHeader>
@@ -233,100 +167,41 @@ const Admin = () => {
                   </CardContent>
                 </Card>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="transactions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Transaction Management</CardTitle>
-              <CardDescription>Review and approve pending transactions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
+                    <TableHead>Username</TableHead>
+                    <TableHead>User ID</TableHead>
+                    <TableHead>Balance</TableHead>
+                    <TableHead>Profite</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
-                      <TableCell className="font-medium">
-                        {transaction.profiles?.username || 'Unknown User'}
-                      </TableCell>
+                  {users?.map((user) => (
+                    <TableRow key={user.$id}>
+                      <TableCell className="font-medium">{user?.user_name}</TableCell>
+                      <TableCell className="text-muted-foreground">{"user_" + user.$id.slice(0, 4).toLocaleUpperCase()}...</TableCell>
+                      <TableCell>${(user?.available_balance || 0).toLocaleString()}</TableCell>
+                      <TableCell>{user?.profite}</TableCell>
+                      <TableCell><div> <MessageIconWithCounter /></div> </TableCell>
+                      <TableCell><MessageIconWithCounter /></TableCell>
                       <TableCell>
-                        <Badge variant={transaction.type === 'deposit' ? 'default' : 'secondary'}>
-                          {transaction.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>${transaction.amount.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant={
-                            transaction.status === 'approved' ? 'default' : 
-                            transaction.status === 'rejected' ? 'destructive' : 
-                            'secondary'
-                          }
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedUser(user.id)}
+                          className="mr-2"
                         >
-                          {transaction.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{new Date(transaction.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        {transaction.status === 'pending' && (
-                          <div className="flex gap-2">
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => processTransaction(transaction.id, 'approved')}
-                            >
-                              <Check className="w-4 h-4 mr-1" />
-                              Approve
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => processTransaction(transaction.id, 'rejected')}
-                            >
-                              <X className="w-4 h-4 mr-1" />
-                              Reject
-                            </Button>
-                          </div>
-                        )}
+                          <Edit3 className="w-4 h-4 mr-1" />
+                          Edit Balance
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="messages" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Messages</CardTitle>
-              <CardDescription>Manage conversations with users</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <div className="text-lg font-medium">Message Management</div>
-                <div className="text-muted-foreground mb-4">
-                  View and respond to user messages through individual conversation pages
-                </div>
-                <Button onClick={() => navigate('/chat')}>
-                  <MessageSquare className="w-4 h-4 mr-2" />
-                  Open Chat Interface
-                </Button>
-              </div>
+              
             </CardContent>
           </Card>
         </TabsContent>
@@ -338,7 +213,7 @@ const Admin = () => {
               <CardDescription>Monitor system alerts and user activities</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              {/*<div className="space-y-4">
                 {transactions.filter(t => t.status === 'pending').length > 0 ? (
                   transactions
                     .filter(t => t.status === 'pending')
@@ -395,7 +270,7 @@ const Admin = () => {
                     <div className="text-muted-foreground">All transactions are up to date</div>
                   </div>
                 )}
-              </div>
+              </div>*/}
             </CardContent>
           </Card>
         </TabsContent>

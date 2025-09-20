@@ -8,14 +8,24 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserContext } from "@/context/AuthProvider";
+import { useCreateNotification, useLastNotification } from "@/lib/query/api";
+import { toast } from "sonner";
 
 const Deposit = () => {
   const [copied, setCopied] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { toast } = useToast();
-  const { user } = useAuth();
+
+
+  
+  const {user } = useUserContext()
+  // Function to fetch last notification (mock implementation)
+  console.log(user);
+  
+  const {data, isPending} = useLastNotification(user?.user_id)
+  const {mutateAsync:createNotification, isPending:isLoading } = useCreateNotification()
 
   const depositAddress = "1A2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7Q8R9S";
   const minDeposit = 10;
@@ -23,94 +33,38 @@ const Deposit = () => {
   const copyAddress = () => {
     navigator.clipboard.writeText(depositAddress);
     setCopied(true);
-    toast({
-      title: "Address Copied",
-      description: "Deposit address copied to clipboard",
-    });
+    toast.success("Deposit address copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
   };
 
   const sendDepositInstructions = () => {
     setEmailSent(true);
-    toast({
-      title: "Instructions Sent",
-      description: "Deposit instructions have been sent to your email",
-    });
+    toast( "Deposit instructions have been sent to your email");
     setTimeout(() => setEmailSent(false), 3000);
   };
 
   const handleDepositRequest = async () => {
     if (!amount || !user) return;
 
-    const depositAmount = parseFloat(amount);
-    if (depositAmount <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid deposit amount.",
-        variant: "destructive",
-      });
-      return;
+    const formData={
+      user_id: user?.user_id, // Size 100, required
+      body: "",   // Size 500, required
+      type: "withdraw", // Optional (can be null)
+      amount:parseFloat(amount) ,  // Min: 0, default 0
+      sentAt:  new Date().toISOString(),
     }
 
-    setIsSubmitting(true);
-
     try {
-      // Get user profile for username
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', user.id)
-        .single();
+    const notification =  await createNotification(formData)
 
-      // Create deposit transaction
-      const { data: transaction, error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'deposit',
-          amount: depositAmount,
-          status: 'pending',
-          description: `Deposit request for ${depositAmount} USDT`
-        })
-        .select()
-        .single();
-
-      if (transactionError) throw transactionError;
-
-      // Send confirmation email
-      const { error: emailError } = await supabase.functions.invoke('send-transaction-email', {
-        body: {
-          transactionId: transaction.id,
-          transactionType: 'deposit',
-          userEmail: user.email,
-          username: profile?.username || 'User',
-          amount: depositAmount,
-          currency: 'USDT',
-          status: 'pending',
-          walletAddress: depositAddress
-        }
-      });
-
-      if (emailError) {
-        console.error('Email error:', emailError);
-        // Don't fail the transaction if email fails
-      }
-
-      toast({
-        title: "Deposit request submitted",
-        description: "Your deposit request has been submitted and confirmation email sent.",
-      });
-
-      setAmount("");
+    if (!notification) {
+     return toast.error('failed to send notification')
+    }
+    toast.success('success')
     } catch (error) {
-      console.error('Deposit error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit deposit request. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
+      console.log(error);
+      toast.error('failed to send notification')
+      
     }
   };
 

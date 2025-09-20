@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowUpRight, Send, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,111 +8,111 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserContext } from "@/context/AuthProvider";
+import { useCreateNotification, useLastNotification } from "@/lib/query/api";
+import { toast } from "sonner";
 
 const Withdrawal = () => {
   const [amount, setAmount] = useState("");
   const [address, setAddress] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
-  const { user } = useAuth();
+ // const [isLoading, setIsLoading] = useState(false);
 
   const availableBalance = 12543.67;
   const minWithdrawal = 50;
-  const networkFee = 1;
 
-  const handleWithdrawal = async () => {
-    if (!user) return;
-    
-    if (!amount || !address) {
-      toast({
-        title: "Error",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
-      return;
-    }
+  const [countdown, setCountdown] = useState(null);
+  const [canWithdraw, setCanWithdraw] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [withdrawalForm, setWithdrawalForm] = useState({
+    amount: '',
+    wallet: '',
+    body: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState('');
 
-    const withdrawAmount = parseFloat(amount);
-    if (withdrawAmount < minWithdrawal) {
-      toast({
-        title: "Error",
-        description: `Minimum withdrawal amount is $${minWithdrawal}`,
-        variant: "destructive",
-      });
-      return;
-    }
+  const {user } = useUserContext()
+  // Function to fetch last notification (mock implementation)
+  console.log(user);
+  
+  const {data, isPending} = useLastNotification(user?.user_id)
+  const {mutateAsync:createNotification, isPending:isLoading } = useCreateNotification()
 
-    if (withdrawAmount > availableBalance) {
-      toast({
-        title: "Error",
-        description: "Insufficient balance",
-        variant: "destructive",
-      });
-      return;
-    }
 
-    setIsLoading(true);
-    
-    try {
-      // Get user profile for username
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', user.id)
-        .single();
+type Countdown = {
+  hours: number;
+  minutes: number;
+  seconds: number;
+} | null;
 
-      // Create withdrawal transaction
-      const { data: transaction, error: transactionError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'withdrawal',
-          amount: withdrawAmount,
-          status: 'pending',
-          description: `Withdrawal request for ${withdrawAmount} USDT to ${address}`
-        })
-        .select()
-        .single();
+function getCountdownOrNull(isoDate: string): Countdown {
+  const inputDate = new Date(isoDate);
+  const now = new Date();
 
-      if (transactionError) throw transactionError;
+  const msIn24Hours = 24 * 60 * 60 * 1000;
+  const elapsed = now.getTime() - inputDate.getTime();
 
-      // Send confirmation email
-      const { error: emailError } = await supabase.functions.invoke('send-transaction-email', {
-        body: {
-          transactionId: transaction.id,
-          transactionType: 'withdrawal',
-          userEmail: user.email,
-          username: profile?.username || 'User',
-          amount: withdrawAmount,
-          currency: 'USDT',
-          status: 'pending',
-          walletAddress: address,
-          networkFee: networkFee
-        }
-      });
+  if (elapsed >= msIn24Hours) {
+    return null;
+  }
 
-      if (emailError) {
-        console.error('Email error:', emailError);
-        // Don't fail the transaction if email fails
+  const remainingMs = msIn24Hours - elapsed;
+
+  const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+  const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((remainingMs % (1000 * 60)) / 1000);
+
+  return { hours, minutes, seconds };
+}
+
+function pad(n: number): string {
+  return n.toString().padStart(2, '0');
+}
+
+type CountdownTimerProps = {
+  isoDate: string;
+};
+
+
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const timeLeft = getCountdownOrNull(data?.$createdAt);
+      setCountdown(timeLeft);
+
+      if (timeLeft === null) {
+        clearInterval(interval); // Stop updating after 24h
       }
+    }, 1000);
 
-      setAmount("");
-      setAddress("");
-      toast({
-        title: "Withdrawal Request Submitted",
-        description: "Confirmation email has been sent to your registered email address",
-      });
-    } catch (error) {
-      console.error('Withdrawal error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to submit withdrawal request. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
+    return () => clearInterval(interval); // Cleanup on unmount
+  }, [data?.$createdAt]);
+
+ 
+  const handleWithdrawal = async() =>{
+
+    const formData={
+      user_id: user?.user_id, // Size 100, required
+      body: "",   // Size 500, required
+      type: "withdraw", // Optional (can be null)
+      amount:parseFloat(amount) ,  // Min: 0, default 0
+      withdrawal_wallet: address.trim(), // Size 200, optional (can be null)
+      sentAt:  new Date().toISOString(),
     }
-  };
+
+    try {
+    const notification =  await createNotification(formData)
+
+    if (!notification) {
+     return toast.error('failed to send notification')
+    }
+    toast.success('success')
+    } catch (error) {
+      console.log(error);
+      toast.error('failed to send notification')
+      
+    }
+  }
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -173,9 +173,12 @@ const Withdrawal = () => {
               />
             </div>
 
-            <Alert className="bg-crypto-orange/10 border-crypto-orange/20">
+            <Alert className="bg-red-200 border-red-400">
               <AlertCircle className="h-4 w-4 text-crypto-orange" />
               <AlertDescription className="text-crypto-orange">
+                {
+                  countdown && countdown !== null ? <div> time left to the next withdrawal {pad(countdown.hours)}:{pad(countdown.minutes)}:{pad(countdown.seconds)}</div> : "Double-check your wallet address. Transactions cannot be reversed."
+                }
                 Double-check your wallet address. Transactions cannot be reversed.
               </AlertDescription>
             </Alert>

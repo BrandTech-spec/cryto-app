@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Send, Paperclip, Phone, Video } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,48 +8,106 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useRealtimeChat } from "@/hooks/useRealtimeChat";
 import { supabase } from "@/integrations/supabase/client";
+import { client, COLLECTION_ID_MESSAGES, DATABASE_ID, databases, ID } from "@/lib/appwrite/appWriteConfig";
+import { Query } from "appwrite";
+import { useUserContext } from "@/context/AuthProvider";
+import { useGetSpecialData, useUpdateSpecialData } from "@/lib/query/api";
+
+type Messages = {
+  reciever_id:string,
+  sender_id:string,
+  reply:string,
+  body:string,
+  sentAt:string,
+  readAt:string
+}
 
 const Chat = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [message, setMessage] = useState("");
-  const [user, setUser] = useState<any>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  
-  const conversationId = searchParams.get('conversation') || undefined;
-  const { 
-    messages, 
-    conversation, 
-    loading, 
-    typing, 
-    sendMessage, 
-    createConversation 
-  } = useRealtimeChat(conversationId);
+  const [reply, setReply] = useState('')
+  const [messageBody, setMessageBody] = useState('')
+  const [messages, setMessages] = useState([])
+  const {user} = useUserContext()
+  const {data:special, isPending} = useGetSpecialData()
 
-  // Get current user
+  const {userId} = useParams()
+
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    getUser();
-  }, []);
+      getMessages();
+    
+      const unsubscribe = client.subscribe(`databases.${DATABASE_ID}.collections.${COLLECTION_ID_MESSAGES}.documents`, response => {
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+          if(response.events.includes("databases.*.collections.*.documents.*.create")){
+              console.log('A MESSAGE WAS CREATED')
+              setMessages(prevState => [response.payload, ...prevState])
+          }
 
-  const handleSendMessage = async () => {
-    if (message.trim()) {
-      const success = await sendMessage(message.trim());
-      if (success) {
-        setMessage("");
+          if(response.events.includes("databases.*.collections.*.documents.*.delete")){
+              console.log('A MESSAGE WAS DELETED!!!')
+              setMessages(prevState => prevState.filter(message => message.$id !== response.payload.$id))
+          }
+      });
+
+      console.log('unsubscribe:', unsubscribe)
+    
+      return () => {
+        unsubscribe();
+      };
+    }, []);
+
+
+  const getMessages = async () => {
+      const response = await databases.listDocuments(
+          DATABASE_ID,
+          COLLECTION_ID_MESSAGES,
+          [
+              Query.orderDesc('$createdAt'),
+              Query.limit(100),
+          ]
+      )
+      console.log(response.documents)
+      setMessages(response.documents)
+  }
+
+  const handleSubmit = async (e) => {
+      e.preventDefault()
+      console.log('MESSAGE:', messageBody)
+
+      
+
+      const payload = {
+        reciever_id:userId === user.user_id ? special.message_id : userId,
+        sender_id:userId === user.user_id ? userId : special.message_id ,
+        reply:reply,
+        body:message,
+        sentAt:new Date().toISOString,
+        
       }
-    }
-  };
+
+      const response = await databases.createDocument(
+              DATABASE_ID, 
+              COLLECTION_ID_MESSAGES, 
+              ID.unique(), 
+              payload,
+             
+          )
+
+      console.log('RESPONSE:', response)
+
+      // setMessages(prevState => [response, ...prevState])
+
+      setMessageBody('')
+
+  }
+
+  const deleteMessage = async (id) => {
+      await databases.deleteDocument(DATABASE_ID, COLLECTION_ID_MESSAGES, id);
+      //setMessages(prevState => prevState.filter(message => message.$id !== message_id))
+   } 
+
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -88,14 +146,14 @@ const Chat = () => {
 
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        {loading ? (
+        {isPending ? (
           <div className="flex justify-center py-8">
             <div className="text-muted-foreground">Loading messages...</div>
           </div>
         ) : (
           <div className="space-y-4">
             {messages.map((msg) => {
-              const isCurrentUser = msg.sender_id === user?.id;
+              const isCurrentUser = msg.sender_id === user?.$id;
               const isAdmin = msg.is_admin;
               
               return (
@@ -134,23 +192,7 @@ const Chat = () => {
         )}
       </ScrollArea>
 
-      {/* Typing Indicator */}
-      {typing && (
-        <div className="px-4 py-2">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Avatar className="h-6 w-6">
-              <AvatarImage src="/placeholder.svg" />
-              <AvatarFallback className="text-xs">CS</AvatarFallback>
-            </Avatar>
-            <div className="flex gap-1">
-              <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
-              <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-              <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-            </div>
-            <span className="text-sm">Support is typing...</span>
-          </div>
-        </div>
-      )}
+    
 
       {/* Message Input */}
       <div className="bg-card border-t border-border p-4">
@@ -177,14 +219,8 @@ const Chat = () => {
           </div>
         </div>
         
-        <div className="flex items-center gap-2 mt-2">
-          <Badge variant="secondary" className="text-xs">
-            🔒 Encrypted
-          </Badge>
-          <span className="text-xs text-muted-foreground">
-            Our support team is available 24/7
-          </span>
-        </div>
+       
+       
       </div>
     </div>
   );

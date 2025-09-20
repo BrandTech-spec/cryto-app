@@ -1,5 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
@@ -18,6 +17,10 @@ import UserNotifications from "./pages/UserNotifications";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import NotFound from "./pages/NotFound";
+import { Toaster } from "sonner";
+import { QueryProvider } from "./lib/query/react-provider";
+import { AuthProvider } from "./context/AuthProvider";
+import TradingInterface from "./pages/BuySell";
 
 const queryClient = new QueryClient();
 
@@ -35,53 +38,59 @@ const AppContent = () => {
   }
 
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route 
-        path="/signin" 
-        element={isAuthenticated ? <Navigate to="/" replace /> : <SignIn />} 
-      />
-      <Route 
-        path="/signup" 
-        element={isAuthenticated ? <Navigate to="/" replace /> : <SignUp />} 
-      />
-      
-      {/* Protected routes */}
-      <Route path="/*" element={
-        <ProtectedRoute>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<History />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/withdrawal" element={<Withdrawal />} />
-              <Route path="/deposit" element={<Deposit />} />
-              <Route path="/chat" element={<Chat />} />
-              
-              {/* Admin routes */}
-              <Route path="/admin" element={
-                <ProtectedRoute requireAdmin>
-                  <Admin />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/user/:userId/messages" element={
-                <ProtectedRoute requireAdmin>
-                  <UserMessages />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/user/:userId/notifications" element={
-                <ProtectedRoute requireAdmin>
-                  <UserNotifications />
-                </ProtectedRoute>
-              } />
-              
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Layout>
-        </ProtectedRoute>
-      } />
-    </Routes>
+    <main>
+      <Routes>
+        {/* Public routes */}
+        <Route
+          path="/signin"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <SignIn />}
+        />
+        <Route
+          path="/signup"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <SignUp />}
+        />
+
+        {/* Protected routes */}
+        <Route path="/*" element={
+          <ProtectedRoute>
+            <Layout>
+              <Routes>
+                <Route path="/" element={<History />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/withdrawal" element={<Withdrawal />} />
+                <Route path="/deposit" element={<Deposit />} />
+                <Route path="/chat" element={<Chat />} />
+                <Route path="/buy" element={<TradingInterface />} />
+                <Route path="/notifications" element={<UserNotifications />} />
+
+                {/* Admin routes */}
+                <Route path="/admin" element={
+                  <ProtectedRoute requireAdmin>
+                    <Admin />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/user/:userId/messages" element={
+                  <ProtectedRoute requireAdmin>
+                    <UserMessages />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/user/:userId/notifications" element={
+                  <ProtectedRoute requireAdmin>
+                    <UserNotifications />
+                  </ProtectedRoute>
+                } />
+
+                {/* Catch-all route */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Layout>
+          </ProtectedRoute>
+        } />
+      </Routes>
+      <Toaster />
+    </main>
+
   );
 };
 
@@ -89,9 +98,14 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <BrowserRouter>
-        <AppContent />
+        <QueryProvider>
+          < AuthProvider>
+            <AppContent />
+          </AuthProvider>
+
+        </QueryProvider>
+
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

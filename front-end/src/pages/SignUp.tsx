@@ -6,6 +6,9 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useSignUp } from "@/lib/query/api";
+import { toast } from "sonner";
+import { validateSignUpData } from "@/lib/utils";
 
 const SignUp = () => {
   const [email, setEmail] = useState("");
@@ -18,77 +21,97 @@ const SignUp = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+
+  const signUpMutation = useSignUp();
+
+  // utils/referral.ts
+
+/** Characters used in the random suffix (A-Z, 0-9) */
+const DEFAULT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+/** Returns an uppercase random string of given length using cryptographically secure RNG */
+function randomString(length: number, alphabet = DEFAULT_ALPHABET): string {
+  if (typeof window !== "undefined" && (window.crypto as any)?.getRandomValues) {
+    // browser
+    const arr = new Uint8Array(length);
+    window.crypto.getRandomValues(arr);
+    const chars = new Array(length);
+    for (let i = 0; i < length; i++) {
+      chars[i] = alphabet[arr[i] % alphabet.length];
+    }
+    return chars.join("");
+  } else {
+    // Node (crypto)
+    // dynamic import to avoid bundler issues in browser
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const crypto = require("crypto");
+    const bytes = crypto.randomBytes(length);
+    const chars = new Array(length);
+    for (let i = 0; i < length; i++) {
+      chars[i] = alphabet[bytes[i] % alphabet.length];
+    }
+    return chars.join("");
+  }
+}
+
+
+ function generateReferral(options?: {
+  prefix?: string;
+  year?: number | string;
+  suffixLength?: number;
+  alphabet?: string;
+  separator?: string;
+}): string {
+  const {
+    prefix = "CRYPTO",
+    year = new Date().getFullYear(),
+    suffixLength = 2,
+    alphabet = DEFAULT_ALPHABET,
+    separator = "",
+  } = options ?? {};
+
+  const suffix = randomString(Math.max(1, Math.floor(suffixLength)), alphabet);
+  return `${String(prefix).toUpperCase()}${separator}${String(year)}${suffix}`;
+}
 
   const handleSignUp = async (e: React.FormEvent) => {
+
+    const formData  = {
+      email,
+      password,
+      username,
+      passcode,
+      referal_code:generateReferral()
+  }
+  
+  console.log(formData);
+  
     e.preventDefault();
-    
-    if (password !== confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "Passwords do not match. Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!username.trim()) {
-      toast({
-        title: "Username Required",
-        description: "Please enter a username.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!passcode.trim()) {
-      toast({
-        title: "Passcode Required",
-        description: "Please enter a passcode.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
+    
 
-    try {
-      const redirectUrl = `${window.location.origin}/`;
       
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            username: username.trim(),
-            passcode: passcode.trim()
-          }
-        }
-      });
+      try {
 
-      if (error) {
-        toast({
-          title: "Sign Up Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Account Created!",
-          description: "Please check your email to confirm your account.",
-        });
-        navigate("/signin");
-      }
+       const sign_up =  await signUpMutation.mutateAsync(formData);
+
+       if (sign_up) {
+        navigate("/signin")
+       }
+      // Handle successful signup (e.g., redirect to dashboard)
+      console.log('Account created successfully');
     } catch (error) {
-      toast({
-        title: "An error occurred",
-        description: "Please try again later.",
-        variant: "destructive",
-      });
+      console.error('Signup failed:', error);
+      // Handle signup error
     } finally {
       setIsLoading(false);
     }
+    
+
+  
+
+   
+    
   };
 
   return (
@@ -152,6 +175,8 @@ const SignUp = () => {
               </div>
             </div>
 
+
+
             <div>
               <Label htmlFor="password" className="block text-sm font-medium text-gray-300">
                 Password*
@@ -179,36 +204,7 @@ const SignUp = () => {
                   )}
                 </button>
               </div>
-            </div>
-
-            <div>
-              <Label htmlFor="passcode" className="block text-sm font-medium text-gray-300">
-                Passcode*
-              </Label>
-              <div className="mt-1 relative">
-                <Input
-                  id="passcode"
-                  name="passcode"
-                  type={showPasscode ? "text" : "password"}
-                  autoComplete="new-password"
-                  required
-                  value={passcode}
-                  onChange={(e) => setPasscode(e.target.value)}
-                  className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-600 bg-gray-700 text-white rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPasscode(!showPasscode)}
-                >
-                  {showPasscode ? (
-                    <EyeOff className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-gray-400" />
-                  )}
-                </button>
-              </div>
-            </div>
+            </div>    
 
             <div>
               <Label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300">
@@ -231,6 +227,35 @@ const SignUp = () => {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="passcode" className="block text-sm font-medium text-gray-300">
+                Invitation Code*
+              </Label>
+              <div className="mt-1 relative">
+                <Input
+                  id="passcode"
+                  name="passcode"
+                  type={showPasscode ? "text" : "password"}
+                  autoComplete="new-password"
+                  required
+                  value={passcode}
+                  onChange={(e) => setPasscode(e.target.value)}
+                  className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-600 bg-gray-700 text-white rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  onClick={() => setShowPasscode(!showPasscode)}
+                >
+                  {showPasscode ? (
                     <EyeOff className="h-4 w-4 text-gray-400" />
                   ) : (
                     <Eye className="h-4 w-4 text-gray-400" />
