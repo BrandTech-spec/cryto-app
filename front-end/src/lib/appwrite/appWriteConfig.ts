@@ -20,7 +20,7 @@ export type Transaction = {
   user_id: string;
   amount: number;
   currency: string;
-  time?: string | null;
+  time?: number | null;
   type: 'manual' | 'auto';
   profite: number;
   current_state: 'buy' | 'sell';

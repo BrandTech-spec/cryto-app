@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentAccount) {
         setUser(currentAccount);
         setIsAuthenticated(true);
-        navigate("/");
+       // navigate("/");
         return true;
       }
 

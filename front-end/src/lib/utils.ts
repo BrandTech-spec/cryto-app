@@ -15,19 +15,27 @@ import { toast } from "sonner";
  * @returns Object containing countdown time or null if expired
  */
 export const calculateTransactionCountdown = (transaction: Transaction | null) => {
+  console.log("Transaction input:", transaction);
+
   if (!transaction || !transaction.$createdAt || !transaction.time) {
+    console.warn("❌ Missing data:", {
+      hasTransaction: !!transaction,
+      createdAt: transaction?.$createdAt,
+      time: transaction?.time,
+    });
     return null;
   }
 
   const createdAt = new Date(transaction.$createdAt);
-  const durationInSeconds = parseInt(transaction.time);
+  const durationInSeconds = transaction.time;
   const expirationTime = new Date(createdAt.getTime() + (durationInSeconds * 1000));
   const currentTime = new Date();
 
   // Check if the transaction has expired
-  if (currentTime >= expirationTime) {
-    return null;
-  }
+ if (currentTime >= expirationTime) {
+  return { isExpired: true, hours: 0, minutes: 0, seconds: 0, totalSeconds: 0, formatted: "00:00:00" };
+}
+
 
   // Calculate remaining time in milliseconds
   const remainingMs = expirationTime.getTime() - currentTime.getTime();

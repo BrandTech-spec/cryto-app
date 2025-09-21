@@ -21,6 +21,8 @@ import { Toaster } from "sonner";
 import { QueryProvider } from "./lib/query/react-provider";
 import { AuthProvider } from "./context/AuthProvider";
 import TradingInterface from "./pages/BuySell";
+import RealtimeChart from "./pages/chart";
+import RealtimeLineAreaChart from "./pages/chart2";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +65,8 @@ const AppContent = () => {
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/buy" element={<TradingInterface />} />
                 <Route path="/notifications" element={<UserNotifications />} />
+                <Route path="/chart" element={<RealtimeChart />} />
+                <Route path="/chart2" element={<RealtimeLineAreaChart />} />
 
                 {/* Admin routes */}
                 <Route path="/admin" element={

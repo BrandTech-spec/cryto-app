@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SignInData, SignUpData, Transaction } from '../appwrite/appWriteConfig';
-import { createNotification, createTransaction, getAllUser, getCurrentUser, getLastNotification, getLastTransaction, getSpecialData, getUserNofication, getUserTransactions, signIn, signOut, signUp, updateSpecialData, updateUser } from '../appwrite/api';
+import { createHistory, createNotification, createTransaction, getAllUser, getCurrentUser, getHistoryById, getLastNotification, getLastTransaction, getSpecialData, getUserNofication, getUserTransactions, signIn, signOut, signUp, updateSpecialData, updateUser } from '../appwrite/api';
 
 // Query keys
 export const QUERY_KEYS = {
@@ -193,3 +193,39 @@ export const useGetSpecialData = () => {
   });
 };
 
+
+//History 
+export const useGetLastHistory = (userId: string | null) => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.lastTransaction, userId],
+    queryFn: () => getHistoryById(userId!),
+    enabled: !!userId, // Only run if userId exists
+    staleTime: 1000 * 30, // 30 seconds
+    refetchInterval: 1000 * 30, // Refetch every 30 seconds
+  });
+};
+
+export const useCreateHistory = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (transactionData:  {
+      user_id: string;
+      body: string;
+      type: string;
+      amount: string;
+      withdrawal_wallet: string;
+      sentAt: number;
+    }) => 
+      createHistory(transactionData),
+    onSuccess: () => {
+      // Invalidate current user data and transaction data
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.currentUser] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.lastTransaction] });
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.userTransactions] });
+    },
+    onError: (error) => {
+      console.error('Create transaction error:', error);
+    },
+  });
+};

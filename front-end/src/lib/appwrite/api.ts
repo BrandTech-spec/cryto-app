@@ -183,8 +183,8 @@ export const getLastTransaction = async (userId: string) => {
       type: transaction.type,
       profite: transaction.profite,
       current_state: transaction.current_state,
-      createdAt: transaction.$createdAt,
-      updatedAt: transaction.$updatedAt,
+      $createdAt: transaction.$createdAt,
+      $updatedAt: transaction.$updatedAt,
     } as Transaction;
   } catch (error) {
     console.error('Get last transaction error:', error);
@@ -332,6 +332,55 @@ export const getSpecialData = async () => {
     return transaction ;
   } catch (error) {
     console.error('Get last transaction error:', error);
+    throw error;
+  }
+};
+
+// history
+export const getHistoryById = async (tradeId: string) => {
+  try {
+    const transactions = await databases.listDocuments(
+      DATABASE_ID,
+      HISTORY_COLLECTION_ID,
+      [
+        Query.equal('trade_id', tradeId),
+        Query.orderDesc('$createdAt'),
+        Query.limit(1)
+      ]
+    );
+
+    if (transactions.documents.length === 0) {
+      return null;
+    }
+
+    const transaction = transactions.documents[0];
+    
+    return transaction
+  } catch (error) {
+    console.error('Get last transaction error:', error);
+    throw error;
+  }
+};
+
+export const createHistory = async (transactionData:  {
+  user_id: string;
+  body: string;
+  type: string;
+  amount: string;
+  withdrawal_wallet: string;
+  sentAt: number;
+}) => {
+  try {
+    const transaction = await databases.createDocument(
+      DATABASE_ID,
+      HISTORY_COLLECTION_ID,
+      ID.unique(),
+      transactionData
+    );
+
+    return transaction
+  } catch (error) {
+    console.error('Create transaction error:', error);
     throw error;
   }
 };
