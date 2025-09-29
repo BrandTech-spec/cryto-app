@@ -78,7 +78,7 @@ const Settings = () => {
 
   const SettingItemComponent = ({ item }: { item: SettingItem }) => {
     const content = (
-      <Card className="bg-gradient-card border-border/50 hover:shadow-glow transition-all duration-300 hover:border-primary/20">
+      <Card className="bg-slate-800 borderborder-border/50 hover:shadow-glow transition-all duration-300 hover:border-primary/20">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -119,7 +119,7 @@ const Settings = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 mx-auto px-4 py-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
           Settings

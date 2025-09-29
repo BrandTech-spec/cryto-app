@@ -1,6 +1,7 @@
 import Footer from "@/components/Footer";
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
+import OandaSupportChat from "./CustomerService";
 
 
 const Index = () => {
@@ -9,6 +10,8 @@ const Index = () => {
       <Header />
       <HeroSection />    
       <Footer />
+      <OandaSupportChat />
+      
     </div>
   );
 };

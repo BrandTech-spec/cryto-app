@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserContext } from "@/context/AuthProvider";
-import { useCreateNotification, useLastNotification } from "@/lib/query/api";
+import { useCreateNotification, useCurrentUser, useLastNotification } from "@/lib/query/api";
 import { toast } from "sonner";
 
 const Withdrawal = () => {
@@ -73,7 +73,7 @@ type CountdownTimerProps = {
   isoDate: string;
 };
 
-
+const {data:currentUser} = useCurrentUser()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -100,6 +100,14 @@ type CountdownTimerProps = {
       sentAt:  new Date().toISOString(),
     }
 
+    if (parseFloat(amount) < 50 ) {
+      return toast.error('can not withdraw lessthan $50 ')
+    }
+
+    if ( currentUser?.available_balance < parseFloat(amount) ) {
+      return toast.error('insufficient balance please top-up to contineu trading ')
+    }
+
     try {
     const notification =  await createNotification(formData)
 
@@ -107,6 +115,29 @@ type CountdownTimerProps = {
      return toast.error('failed to send notification')
     }
     toast.success('success')
+
+   const response = await fetch('http://localhost:3000/send_withdrawal_confirmation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: currentUser?.email,
+        accountId:"user_" + user.$id.slice(0, 4).toLocaleUpperCase() ,
+        amount: amount,
+        currency:'USDT',
+        traceId: address
+      })
+    });
+    
+    const result = await response.json();
+   
+
+    if (result) {
+      toast.success(' you will soon recieve an email confimation')
+    }
+    
+
     } catch (error) {
       console.log(error);
       toast.error('failed to send notification')
@@ -115,7 +146,7 @@ type CountdownTimerProps = {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 mx-auto px-4 py-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
           Withdraw Funds
@@ -127,12 +158,12 @@ type CountdownTimerProps = {
 
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Balance Info */}
-        <Card className="bg-gradient-card border-border/50">
+        <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border border-border/50">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Available Balance</p>
-                <p className="text-2xl font-bold text-foreground">${availableBalance.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-foreground">${currentUser?.available_balance.toLocaleString()}</p>
               </div>
               <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <ArrowUpRight className="h-6 w-6 text-primary" />
@@ -142,7 +173,7 @@ type CountdownTimerProps = {
         </Card>
 
         {/* Withdrawal Form */}
-        <Card className="bg-gradient-card border-border/50">
+        <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border border-border/50">
           <CardHeader>
             <CardTitle className="text-foreground">Withdrawal Details</CardTitle>
           </CardHeader>
@@ -150,8 +181,7 @@ type CountdownTimerProps = {
             <div className="space-y-2">
               <Label htmlFor="amount" className="text-foreground">Amount (USD)</Label>
               <Input
-                id="amount"
-                type="number"
+                type="text"
                 placeholder="0.00"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -201,7 +231,7 @@ type CountdownTimerProps = {
         </Card>
 
         {/* Info Card */}
-        <Card className="bg-gradient-card border-border/50">
+        <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border border-border/50">
           <CardContent className="p-4">
             <h3 className="font-semibold text-foreground mb-2">Processing Information</h3>
             <ul className="text-sm text-muted-foreground space-y-1">

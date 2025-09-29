@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { AreaSeries, createChart, LineSeries } from "lightweight-charts";
+import { createChart, LineSeries } from "lightweight-charts";
 
 export const ranges = {
   // Forex Pairs
@@ -38,21 +38,22 @@ type Props = {
   asset: keyof typeof ranges;
 };
 
-export default function RealtimeLineAreaChart({ asset }: Props) {
+export default function RealtimeLineChart({ asset }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const lineSeriesRef = useRef<any>(null);
-  const areaSeriesRef = useRef<any>(null);
   const intervalRef = useRef<any>(null);
+  const priceLineRef = useRef<any>(null);
 
   const [currentPrice, setCurrentPrice] = useState<number>(0);
-  const [chartType, setChartType] = useState<"line" | "area">("line");
 
-  // asset range
+  // --- asset range setup
   const { min, max } = ranges[asset] ?? { min: 1, max: 2 };
-  const volatility = 0.01; // relative moves
+  const volatility = 0.01; // tweak per asset type (relative movement)
+
   let lastTime = Math.floor(Date.now() / 1000);
-  let lastValue = min + (max - min) * Math.random();
+  let lastValue =
+    min + (max - min) * Math.random(); // start somewhere inside range
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -64,6 +65,7 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
       },
       width: containerRef.current.clientWidth,
       height: 400,
+      crosshair: { mode: 1 },
     });
 
     const lineSeries = chart.addSeries(LineSeries, {
@@ -71,16 +73,8 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
       lineWidth: 2,
     });
 
-    const areaSeries = chart.addSeries(AreaSeries, {
-      topColor: "rgba(38, 166, 154, 0.4)",
-      bottomColor: "rgba(38, 166, 154, 0)",
-      lineColor: "#26a69a",
-      lineWidth: 2,
-    });
-
     chartRef.current = chart;
     lineSeriesRef.current = lineSeries;
-    areaSeriesRef.current = areaSeries;
 
     // seed data
     const seedData: any[] = [];
@@ -95,8 +89,17 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
       lastValue = value;
     }
     lineSeries.setData(seedData);
-    areaSeries.setData(seedData);
     setCurrentPrice(lastValue);
+
+    // add price line
+    priceLineRef.current = lineSeries.createPriceLine({
+      price: lastValue,
+      color: "#ff9800",
+      lineWidth: 2,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "Current",
+    });
 
     // realtime updates
     intervalRef.current = setInterval(() => {
@@ -108,8 +111,19 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
 
       const point = { time: lastTime, value };
       lineSeries.update(point);
-      areaSeries.update(point);
       setCurrentPrice(value);
+
+      if (priceLineRef.current) {
+        lineSeries.removePriceLine(priceLineRef.current);
+      }
+      priceLineRef.current = lineSeries.createPriceLine({
+        price: value,
+        color: "#ff9800",
+        lineWidth: 2,
+        lineStyle: 2,
+        axisLabelVisible: true,
+        title: "Current",
+      });
     }, 1000);
 
     const handleResize = () => {
@@ -122,7 +136,7 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [asset]);
+  }, [asset]); // rerun when asset changes
 
   return (
     <div style={{ color: "white", fontFamily: "system-ui, sans-serif" }}>
@@ -148,29 +162,12 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
           <strong>{asset} Price:</strong>{" "}
           {currentPrice.toFixed(5)}
         </div>
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={buttonStyle} onClick={() => setChartType("line")}>
-            Line
-          </button>
-          <button style={buttonStyle} onClick={() => setChartType("area")}>
-            Area
-          </button>
-        </div>
       </div>
     </div>
   );
 }
 
-const buttonStyle: React.CSSProperties = {
-  padding: "6px 12px",
-  borderRadius: 6,
-  cursor: "pointer",
-  background: "rgba(40,44,52,1)",
-  color: "white",
-  border: "none",
-};
-
+// helper clamp
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max));
 }

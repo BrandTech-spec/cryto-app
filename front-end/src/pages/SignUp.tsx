@@ -6,7 +6,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useSignUp } from "@/lib/query/api";
+import { useSignIn, useSignUp } from "@/lib/query/api";
 import { toast } from "sonner";
 import { validateSignUpData } from "@/lib/utils";
 
@@ -23,81 +23,91 @@ const SignUp = () => {
   const navigate = useNavigate();
 
   const signUpMutation = useSignUp();
+  const signInMutation = useSignIn();
 
   // utils/referral.ts
 
-/** Characters used in the random suffix (A-Z, 0-9) */
-const DEFAULT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  /** Characters used in the random suffix (A-Z, 0-9) */
+  const DEFAULT_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-/** Returns an uppercase random string of given length using cryptographically secure RNG */
-function randomString(length: number, alphabet = DEFAULT_ALPHABET): string {
-  if (typeof window !== "undefined" && (window.crypto as any)?.getRandomValues) {
-    // browser
-    const arr = new Uint8Array(length);
-    window.crypto.getRandomValues(arr);
-    const chars = new Array(length);
-    for (let i = 0; i < length; i++) {
-      chars[i] = alphabet[arr[i] % alphabet.length];
+  /** Returns an uppercase random string of given length using cryptographically secure RNG */
+  function randomString(length: number, alphabet = DEFAULT_ALPHABET): string {
+    if (typeof window !== "undefined" && (window.crypto as any)?.getRandomValues) {
+      // browser
+      const arr = new Uint8Array(length);
+      window.crypto.getRandomValues(arr);
+      const chars = new Array(length);
+      for (let i = 0; i < length; i++) {
+        chars[i] = alphabet[arr[i] % alphabet.length];
+      }
+      return chars.join("");
+    } else {
+      // Node (crypto)
+      // dynamic import to avoid bundler issues in browser
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const crypto = require("crypto");
+      const bytes = crypto.randomBytes(length);
+      const chars = new Array(length);
+      for (let i = 0; i < length; i++) {
+        chars[i] = alphabet[bytes[i] % alphabet.length];
+      }
+      return chars.join("");
     }
-    return chars.join("");
-  } else {
-    // Node (crypto)
-    // dynamic import to avoid bundler issues in browser
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const crypto = require("crypto");
-    const bytes = crypto.randomBytes(length);
-    const chars = new Array(length);
-    for (let i = 0; i < length; i++) {
-      chars[i] = alphabet[bytes[i] % alphabet.length];
-    }
-    return chars.join("");
   }
-}
 
 
- function generateReferral(options?: {
-  prefix?: string;
-  year?: number | string;
-  suffixLength?: number;
-  alphabet?: string;
-  separator?: string;
-}): string {
-  const {
-    prefix = "CRYPTO",
-    year = new Date().getFullYear(),
-    suffixLength = 2,
-    alphabet = DEFAULT_ALPHABET,
-    separator = "",
-  } = options ?? {};
+  function generateReferral(options?: {
+    prefix?: string;
+    year?: number | string;
+    suffixLength?: number;
+    alphabet?: string;
+    separator?: string;
+  }): string {
+    const {
+      prefix = "CRYPTO",
+      year = new Date().getFullYear(),
+      suffixLength = 2,
+      alphabet = DEFAULT_ALPHABET,
+      separator = "",
+    } = options ?? {};
 
-  const suffix = randomString(Math.max(1, Math.floor(suffixLength)), alphabet);
-  return `${String(prefix).toUpperCase()}${separator}${String(year)}${suffix}`;
-}
+    const suffix = randomString(Math.max(1, Math.floor(suffixLength)), alphabet);
+    return `${String(prefix).toUpperCase()}${separator}${String(year)}${suffix}`;
+  }
 
   const handleSignUp = async (e: React.FormEvent) => {
 
-    const formData  = {
+    const formData = {
       email,
       password,
       username,
       passcode,
-      referal_code:generateReferral()
-  }
-  
-  console.log(formData);
-  
+      referal_code: generateReferral()
+    }
+
+    console.log(formData);
+
     e.preventDefault();
     setIsLoading(true);
-    
 
-      
-      try {
 
-       const sign_up =  await signUpMutation.mutateAsync(formData);
 
-       if (sign_up) {
-        navigate("/signin")
-       }
+    try {
+
+      const sign_up = await signUpMutation.mutateAsync(formData);
+
+      if (!sign_up) {
+        return toast.error("failed to create an account please try again")
+      }
+
+      const sign_in = await signInMutation.mutateAsync(formData);
+
+      if (!sign_in) {
+        return toast.error("failed to create an account please try again")
+      }
+
+      navigate("/buy")
+
       // Handle successful signup (e.g., redirect to dashboard)
       console.log('Account created successfully');
     } catch (error) {
@@ -106,38 +116,36 @@ function randomString(length: number, alphabet = DEFAULT_ALPHABET): string {
     } finally {
       setIsLoading(false);
     }
-    
 
-  
-
-   
-    
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-900 flex flex-col justify-center px-3 py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-3">
-            {/* OANDA Logo Recreation */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            {/* Logo */}
             <div className="flex flex-col">
               <div className="flex items-end gap-0.5 mb-1">
-                <div className="w-2 h-6 bg-green-500 transform -skew-x-12"></div>
-                <div className="w-2 h-8 bg-green-500 transform -skew-x-12"></div>
                 <div className="w-2 h-4 bg-green-500 transform -skew-x-12"></div>
+                <div className="w-2 h-6 bg-green-500 transform -skew-x-12"></div>
+                <div className="w-2 h-8 bg-blue-900 transform -skew-x-12"></div>
               </div>
               <div className="w-8 h-1 bg-green-500"></div>
             </div>
-            <div className="text-2xl font-bold text-white">OANDA</div>
+
+            <div>
+              <h1 className="text-3xl font-bold text-white/90">OANDA</h1>
+              <p className="text-sm text-gray-600 tracking-wider">SMARTER TRADING</p>
+            </div>
           </div>
         </div>
         <div className="text-center">
-          <div className="text-sm text-gray-400 mb-8">SMARTER TRADING</div>
         </div>
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-700">
+        <div className="bg-gray-800 py-8 px-4 shadow rounded-xl sm:rounded-lg sm:px-10 border border-gray-700">
           <form className="space-y-6" onSubmit={handleSignUp}>
             <div>
               <Label htmlFor="email" className="block text-sm font-medium text-gray-300">
@@ -204,7 +212,7 @@ function randomString(length: number, alphabet = DEFAULT_ALPHABET): string {
                   )}
                 </button>
               </div>
-            </div>    
+            </div>
 
             <div>
               <Label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300">

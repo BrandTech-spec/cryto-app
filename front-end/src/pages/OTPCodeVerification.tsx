@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Mail, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const OTPVerificationPage = () => {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -8,7 +9,7 @@ const OTPVerificationPage = () => {
   const [resendTimer, setResendTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef([]);
-
+const navigate = useNavigate()
   // Timer for resend functionality
   useEffect(() => {
     let interval;
@@ -83,8 +84,9 @@ const OTPVerificationPage = () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Simulate verification (replace with actual API call)
-      if (otpCode === '123456') {
+      if (otpCode.length  === 6) {
         alert('OTP verified successfully!');
+        navigate('/admin')
         // Redirect or handle success
       } else {
         setError('Invalid OTP. Please try again.');

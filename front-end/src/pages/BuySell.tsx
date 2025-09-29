@@ -17,8 +17,11 @@ import { withMask } from "use-mask-input"
 
 import { Label } from "@/components/ui/label"
 import { useUserContext } from "@/context/AuthProvider";
-import { useCreateTransaction, useLastTransaction } from "@/lib/query/api";
+import { useCreateTransaction, useCurrentUser, useLastTransaction } from "@/lib/query/api";
 import { Transaction } from "@/lib/appwrite/appWriteConfig";
+import { options } from "@/constants";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 interface OrderData {
   price: number;
@@ -48,6 +51,7 @@ const getRandomAmountChange = () => {
 };
 
 // Initial order book data
+
 const initialOrderBookData: OrderData[] = [
   { price: 118079.32, amount: 0.00041, priceStr: "118,079.32", amountStr: "0.00041" },
   { price: 118078.70, amount: 0.00005, priceStr: "118,078.70", amountStr: "0.00005" },
@@ -55,7 +59,7 @@ const initialOrderBookData: OrderData[] = [
   { price: 118076.10, amount: 0.03197, priceStr: "118,076.10", amountStr: "0.03197" },
   { price: 118076.09, amount: 0.00272, priceStr: "118,076.09", amountStr: "0.00272" },
   { price: 118075.99, amount: 0.13586, priceStr: "118,075.99", amountStr: "0.13586" },
-  { price: 118075.98, amount: 12.94900, priceStr: "118,075.98", amountStr: "12.94900" },
+  { price: 118075.98, amount: 12.94900,priceStr: "118,075.98",amountStr: "12.94900" },
 ];
 
 const initialLowerOrderData: OrderData[] = [
@@ -73,7 +77,7 @@ const TradingInterface = () => {
 
   // Buy form states
   const [buyOrderType, setBuyOrderType] = useState("limit");
-  const [buyPrice, setBuyPrice] = useState("118075.97");
+  const [buyPrice, setBuyPrice] = useState("0");
   const [buyAmount, setBuyAmount] = useState("");
   const [buyTotal, setBuyTotal] = useState("");
   const [buySliderValue, setBuySliderValue] = useState([25]);
@@ -82,31 +86,33 @@ const TradingInterface = () => {
 
   // Sell form states
   const [sellOrderType, setSellOrderType] = useState("limit");
-  const [sellPrice, setSellPrice] = useState("118075.97");
+  const [sellPrice, setSellPrice] = useState("0");
   const [sellAmount, setSellAmount] = useState("");
   const [sellTotal, setSellTotal] = useState("");
   const [sellSliderValue, setSellSliderValue] = useState([25]);
   const [sellTakeProfit, setSellTakeProfit] = useState(false);
   const [sellIceberg, setSellIceberg] = useState(false);
 
-  
+
   const [timeValue, setTimeValue] = useState('');
   const [error, setError] = useState('');
-  const {user} = useUserContext()
+  const { user } = useUserContext()
   // Time duration states
   const [buyDuration, setBuyDuration] = useState("01:00:00");
   const [sellDuration, setSellDuration] = useState("01:00:00");
+  const {data:currentUser} = useCurrentUser()
+
 
   function hmsToSeconds(hms: string): number {
     const [hours, minutes, seconds] = hms.split(":").map(Number);
-  
+
     if ([hours, minutes, seconds].some(isNaN)) {
       throw new Error("Invalid time format. Expected hh:mm:ss");
     }
-  
+
     return hours * 3600 + minutes * 60 + seconds;
   }
-  
+
   // Function to convert time format (hh:mm:ss) to seconds
   const timeToSeconds = (timeString) => {
     if (!timeString || typeof timeString !== 'string') return 0;
@@ -145,80 +151,45 @@ const TradingInterface = () => {
   const [priceChange, setPriceChange] = useState(0.60);
   const [balance, setBalance] = useState(2250.48858595);
   const [btcBalance] = useState(0.01905);
+  const navigate = useNavigate()
+  const { mutateAsync: createTransaction, isPending: isCreating } = useCreateTransaction()
+  const { data: transaction } = useLastTransaction(user?.user_id)
 
-  const {mutateAsync:createTransaction, isPending:isCreating} = useCreateTransaction()
-  const {data:transaction} = useLastTransaction(user?.user_id)
 
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
 
-   const calculateTransactionCountdown = (transaction: Transaction | null) => {
-    console.log("Transaction input:", transaction);
-  
-    if (!transaction || !transaction?.$createdAt || !transaction?.time) {
-      console.warn("❌ Missing data:", {
-        hasTransaction: !!transaction,
-        createdAt: transaction?.$createdAt,
-        time: transaction?.time,
-      });
-      return null;
+  const calculateTimeLeft = () => {
+    const currentTime = new Date().getTime();
+    const createdAtTime = new Date(transaction?.$createdAt).getTime();
+    const targetTime = createdAtTime + transaction?.time * 1000; // combine createdAt and time to get the target time
+
+    if (currentTime < targetTime) {
+      const timeDifference = targetTime - currentTime;
+
+      const hours = Math.floor(timeDifference / (1000 * 60 * 60));
+      const minutes = Math.floor((timeDifference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((timeDifference % (1000 * 60)) / 1000);
+
+      // Return time in hh:mm:ss format
+      setTimeLeft(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+    } else {
+      setTimeLeft(null);
     }
-  
-    const createdAt = new Date(transaction.$createdAt);
-    const durationInSeconds = transaction.time;
-    const expirationTime = new Date(createdAt.getTime() + (durationInSeconds * 1000));
-    const currentTime = new Date();
-  
-    // Check if the transaction has expired
-   if (currentTime >= expirationTime) {
-    return { isExpired: true, hours: 0, minutes: 0, seconds: 0, totalSeconds: 0, formatted: "00:00:00" };
-  }
-  
-  
-    // Calculate remaining time in milliseconds
-    const remainingMs = expirationTime.getTime() - currentTime.getTime();
-    
-    // Convert to hours, minutes, seconds
-    const hours = Math.floor(remainingMs / (1000 * 60 * 60));
-    const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((remainingMs % (1000 * 60)) / 1000);
-  
-    return {
-      hours,
-      minutes,
-      seconds,
-      totalSeconds: Math.floor(remainingMs / 1000),
-      formatted: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
-      isExpired: false,
-    };
   };
 
-  const [countdown, setCountdown] = React.useState(() => calculateTransactionCountdown(transaction));
-
-
-  React.useEffect(() => {
-    if (!transaction || !transaction?.$createdAt || !transaction?.time) {
-      setCountdown(null);
-      return;
-    }
-
-    // Update countdown immediately
-    setCountdown(calculateTransactionCountdown(transaction));
-
-    // Set up interval to update every second
-    const interval = setInterval(() => {
-      const newCountdown = calculateTransactionCountdown(transaction);
-      setCountdown(newCountdown);
-      
-      // Clear interval if transaction has expired
-      if (!newCountdown) {
-        clearInterval(interval);
-      }
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      calculateTimeLeft();
     }, 1000);
 
-    return () => clearInterval(interval);
-  }, [transaction?.$id, transaction?.$createdAt, transaction?.time]);
+    // Initial calculation
+    calculateTimeLeft();
+
+    return () => clearInterval(intervalId); // Cleanup on unmount
+  }, [transaction?.$createdAt, transaction?.time]);
 
   // Submit handlers
-  const handleBuySubmit = (e: React.FormEvent) => {
+  const handleBuySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateTimeFormat(buyDuration)) {
@@ -240,20 +211,40 @@ const TradingInterface = () => {
 
     const formData = {
       user_id: user.user_id,
-      amount:parseFloat(buyAmount),
-      currency: priceChange,
+      amount: parseFloat(buyAmount),
+      currency: selectedAsset,
       time: timeToSeconds(timeValue),
-      type: timeValue ?    'auto' : 'manual',
+      type: timeValue ? 'auto' : 'manual',
       profite: user.profite,
-      current_state: 'buy' 
+      current_state: 'buy'
+    }
+
+    if (parseInt(buyPrice) < 5 ) {
+      return toast.error('can not trade lessthan $5 ')
+    }
+
+    if ( currentUser?.available_balance < parseInt(buyPrice) ) {
+      return toast.error('insufficient balance please top-up to contineu trading ')
+    }
+
+
+    try {
+
+      const create = await createTransaction(formData)
+      if (create) {
+        navigate("/chart")
+      }
+    } catch (error) {
+      console.log(error);
+
     }
   }
 
 
-  const handleSellSubmit = async(e: React.FormEvent) => {
+  const handleSellSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    
+
 
     const orderData = {
       orderType: sellOrderType,
@@ -269,30 +260,41 @@ const TradingInterface = () => {
 
     const formData = {
       user_id: user.user_id,
-      amount:parseFloat(sellAmount),
-      currency: selectedPair,
+      amount: parseFloat(sellAmount),
+      currency: selectedAsset,
       time: timeToSeconds(timeValue),
-      type: timeValue ?    'auto' : 'manual',
+      type: timeValue ? 'auto' : 'manual',
       profite: user.profite,
-      current_state: 'sell' 
+      current_state: 'sell'
     }
+
+    if (parseInt(sellPrice) < 5 ) {
+      return toast.error('can not trade lessthan $5 ')
+    }
+
+    if ( currentUser?.available_balance < parseInt(sellPrice) ) {
+      return toast.error('insufficient balance please top-up to contineu trading ')
+    }
+
 
     try {
 
-     const create = await createTransaction(formData)
-      
+      const create = await createTransaction(formData)
+
+      if (create) {
+        navigate("/chart")
+      }
+
     } catch (error) {
       console.log(error);
-      
+
     }
   };
 
   // Update slider amounts
   useEffect(() => {
     const maxBuyAmount = balance / parseFloat(buyPrice || "1");
-    const sliderAmount = (maxBuyAmount * buySliderValue[0]) / 100;
-    setBuyAmount(sliderAmount.toFixed(5));
-    setBuyTotal((sliderAmount * parseFloat(buyPrice || "0")).toFixed(2));
+    
   }, [buySliderValue, buyPrice, balance]);
 
   useEffect(() => {
@@ -311,8 +313,7 @@ const TradingInterface = () => {
         const safePrice = Math.max(newPrice, 100000);
 
         // Update form prices to follow market
-        setBuyPrice(formatPrice(safePrice));
-        setSellPrice(formatPrice(safePrice));
+      
 
         return safePrice;
       });
@@ -360,10 +361,7 @@ const TradingInterface = () => {
       );
 
       // Update balance slightly
-      setBalance(prev => {
-        const change = (Math.random() - 0.5) * 10;
-        return Math.max(prev + change, 0);
-      });
+      
     }, 1000);
 
     return () => clearInterval(interval);
@@ -372,7 +370,7 @@ const TradingInterface = () => {
 
   /// TIME  INPUTE
 
-  
+
 
 
   // Validate time format HH:MM:SS
@@ -410,7 +408,7 @@ const TradingInterface = () => {
 
     const time = setTimeValue(formattedValue);
     console.log(timeValue);
-    
+
     // Validate the input
     if (formattedValue && !validateTime(formattedValue)) {
       setError('Please enter a valid time in HH:MM:SS format');
@@ -425,43 +423,67 @@ const TradingInterface = () => {
       alert(`Time entered: ${timeValue || 'No time entered'}`);
     }
   };
-
+  const [selectedAsset, setSelectedAsset] = useState('EUR/USD');
+  const [isOpen, setIsOpen] = useState(false);
+  const handleSelect = (asset) => {
+    setSelectedAsset(asset);
+    setIsOpen(false);
+  };
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
         {/* Left side - Order Book */}
-        <Card className="bg-gray-800 border-gray-700">
+        <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border-border/50">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-              <Select value={selectedPair} onValueChange={setSelectedPair}>
-      <SelectTrigger className="w-32 border-0 bg-transparent p-0 h-auto">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="btc-usdt">BTC/USDT</SelectItem>
-        <SelectItem value="eth-usdt">ETH/USDT</SelectItem>
-        <SelectItem value="ada-usdt">ADA/USDT</SelectItem>
-      </SelectContent>
-    </Select>
+                <div className=" p-6 flex items-center justify-center">
+
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsOpen(!isOpen)}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-left
+                     text-white font-mono text-sm hover:bg-gray-750 focus:outline-none 
+                     focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                     transition-all duration-200 flex items-center justify-between"
+                    >
+                      <span className="text-white">
+                        {selectedAsset}
+                      </span>
+                      <ChevronDown
+                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''
+                          }`}
+                      />
+                    </button>
+
+                    {isOpen && (
+                      <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 
+                          rounded-lg shadow-2xl z-50 max-h-80 overflow-y-auto">
+                        {options.map((asset) => (
+                          <button
+                            key={asset}
+                            onClick={() => handleSelect(asset)}
+                            className="w-full px-4 py-3 text-left text-white font-mono text-sm
+                           hover:bg-gray-700 focus:outline-none focus:bg-gray-700
+                           transition-colors duration-150 border-b border-gray-750 last:border-b-0"
+                          >
+                            {asset}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+
+
+                </div>
                 <Badge variant={priceChange >= 0 ? "default" : "destructive"} className={priceChange >= 0 ? "bg-green-600 hover:bg-green-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}>
                   <TrendingUp className="w-3 h-3 mr-1" />
                   {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
                 </Badge>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">
-                    <Settings className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem>Settings</DropdownMenuItem>
-                  <DropdownMenuItem>Chart View</DropdownMenuItem>
-                  <DropdownMenuItem>Export Data</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+             
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -512,7 +534,7 @@ const TradingInterface = () => {
         </Card>
 
         {/* Right side - Trading Panel */}
-        <Card className="bg-gray-800 border-gray-700">
+        <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border-border/50">
           <CardContent className="p-6">
             {/* Buy/Sell Tabs */}
             <Tabs value={orderType} onValueChange={(value) => setOrderType(value as "buy" | "sell")} className="mb-6">
@@ -562,28 +584,15 @@ const TradingInterface = () => {
                     />
                   </div>
 
-
-                  {/* Amount Slider */}
+                  {/* Total Input */}
                   <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-sm text-gray-400">Amount Percentag{countdown?.formatted} </label>
-                      <span className="text-sm text-gray-400">{buySliderValue[0]}%</span>
-                    </div>
-                    <Slider
-                      value={buySliderValue}
-                      onValueChange={setBuySliderValue}
-                      max={100}
-                      min={0}
-                      step={1}
-                      className="w-full"
+                    <label className="text-sm text-gray-400 mb-2 block">Total (USDT)</label>
+                    <Input
+                      value={currentUser?.available_balance - parseInt(buyPrice)}
+                       readOnly
+                      className="font-mono"
+                      placeholder="0"
                     />
-                    <div className="flex justify-between mt-2 text-xs text-gray-500">
-                      <span>0%</span>
-                      <span>25%</span>
-                      <span>50%</span>
-                      <span>75%</span>
-                      <span>100%</span>
-                    </div>
                   </div>
 
                   {/* Duration Input */}
@@ -610,16 +619,29 @@ const TradingInterface = () => {
                     </p>
                   </div>
 
-                  {/* Total Input */}
+                  {/* Amount Slider */}
                   <div>
-                    <label className="text-sm text-gray-400 mb-2 block">Total (USDT)</label>
-                    <Input
-                      value={buyTotal}
-                      onChange={(e) => setBuyTotal(e.target.value)}
-                      className="font-mono"
-                      placeholder="0"
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-sm text-gray-400">Amount Percentag{timeLeft} </label>
+                      <span className="text-sm text-gray-400">{buySliderValue[0]}%</span>
+                    </div>
+                    <Slider
+                      value={buySliderValue}
+                      onValueChange={setBuySliderValue}
+                      max={100}
+                      min={0}
+                      step={1}
+                      className="w-full"
                     />
+                    <div className="flex justify-between mt-2 text-xs text-gray-500">
+                      <span>0%</span>
+                      <span>25%</span>
+                      <span>50%</span>
+                      <span>75%</span>
+                      <span>100%</span>
+                    </div>
                   </div>
+
 
                   <Separator />
 
@@ -648,22 +670,22 @@ const TradingInterface = () => {
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Available Balance</span>
                       <Badge variant="secondary" className="font-mono">
-                        {balance.toFixed(2)} USDT 💰
+                        {currentUser?.available_balance} USDT 
                       </Badge>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Max Buy</span>
-                      <span className="font-mono">{(balance / currentPrice).toFixed(5)} BTC</span>
+                      <span className="text-gray-400">fee</span>
+                      <span className="font-mono">0</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Est. Fee</span>
-                      <span className="font-mono">-- BTC</span>
+                      <span className="text-gray-400">commodity</span>
+                      <span className="font-mono">{selectedAsset}</span>
                     </div>
                   </div>
 
                   {/* Buy Button */}
-                  <Button onClick={handleBuySubmit} className="w-full bg-green-600 hover:bg-green-700 text-white" size="lg">
-                    Buy BTC
+                  <Button disabled={isCreating || buySliderValue[0] < 100 } onClick={handleBuySubmit} className="w-full bg-green-600 hover:bg-green-700 text-white" size="lg">
+                    Trade
                   </Button>
                 </div>
               </TabsContent>
@@ -699,31 +721,15 @@ const TradingInterface = () => {
                     />
                   </div>
 
-                 
-
-                  {/* Amount Slider */}
+                  {/* Total Input */}
                   <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-sm text-gray-400">Amount Percentage</label>
-                      <span className="text-sm text-gray-400">{sellSliderValue[0]}%</span>
-                    </div>
-                    <Slider
-                      value={sellSliderValue}
-                      onValueChange={setSellSliderValue}
-                      max={100}
-                      min={0}
-                      step={1}
-                      className="w-full"
+                    <label className="text-sm text-gray-400 mb-2 block">Total (USDT)</label>
+                    <Input
+                      value={currentUser?.available_balance - parseInt(sellPrice)}
+                      className="font-mono"
+                      placeholder="0"
                     />
-                    <div className="flex justify-between mt-2 text-xs text-gray-500">
-                      <span>0%</span>
-                      <span>25%</span>
-                      <span>50%</span>
-                      <span>75%</span>
-                      <span>100%</span>
-                    </div>
                   </div>
-
                   {/* Duration Input */}
 
                   <div>
@@ -748,18 +754,35 @@ const TradingInterface = () => {
                     </p>
                   </div>
 
-                  {/* Total Input */}
+
+                  {/* Amount Slider */}
                   <div>
-                    <label className="text-sm text-gray-400 mb-2 block">Total (USDT)</label>
-                    <Input
-                      value={sellTotal}
-                      onChange={(e) => setSellTotal(e.target.value)}
-                      className="font-mono"
-                      placeholder="0"
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="text-sm text-gray-400">Amount Percentage</label>
+                      <span className="text-sm text-gray-400">{sellSliderValue[0]}%</span>
+                    </div>
+                    <Slider
+                      value={sellSliderValue}
+                      onValueChange={setSellSliderValue}
+                      max={100}
+                      min={0}
+                      step={1}
+                      className="w-full"
                     />
+                    <div className="flex justify-between mt-2 text-xs text-gray-500">
+                      <span>0%</span>
+                      <span>25%</span>
+                      <span>50%</span>
+                      <span>75%</span>
+                      <span>100%</span>
+                    </div>
                   </div>
 
-                 
+
+
+
+
+
                   <Separator />
 
                   {/* Advanced Options */}
@@ -786,23 +809,21 @@ const TradingInterface = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-400">Available Balance</span>
-                      <Badge variant="secondary" className="font-mono">
-                        {btcBalance} BTC 💰
-                      </Badge>
+                      {currentUser?.available_balance}
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Max Sell</span>
-                      <span className="font-mono">{btcBalance} BTC</span>
+                      <span className="text-gray-400">fee</span>
+                      <span className="font-mono">0</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Est. Fee</span>
-                      <span className="font-mono">-- USDT</span>
+                      <span className="text-gray-400">commodity</span>
+                      <span className="font-mono">{selectedAsset}</span>
                     </div>
                   </div>
 
                   {/* Sell Button */}
-                  <Button onClick={handleSellSubmit} className="w-full bg-red-600 hover:bg-red-700 text-white" size="lg">
-                    Sell BTC
+                  <Button disabled={isCreating || sellSliderValue[0] < 100} onClick={handleSellSubmit} className="w-full bg-red-600 hover:bg-red-700 text-white" size="lg">
+                    Trade
                   </Button>
                 </div>
               </TabsContent>

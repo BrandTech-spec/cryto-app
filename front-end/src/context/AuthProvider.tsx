@@ -18,7 +18,16 @@ export const INITIAL_USER = {
    
   };
 
+  export const trade_data = {
+    open_price:0,
+    close_price:0,
+    percentage_changes:0,
+    price_changes:0
+  }
+
 const INITIAL_STATE = {
+  tradeData:trade_data,
+  setTradeData:() => {},
   user: INITIAL_USER,
   isLoading: false,
   isAuthenticated: false,
@@ -28,8 +37,10 @@ const INITIAL_STATE = {
 };
 
 type IContextType = {
-  user: Omit<User, '$createdAt'  | '$updatedAt'>;
+  user: User;
   isLoading: boolean;
+  tradeData: typeof trade_data, 
+  setTradeData:React.Dispatch<React.SetStateAction<typeof trade_data>>,
   setUser: React.Dispatch<React.SetStateAction<User>>;
   isAuthenticated: boolean;
   setIsAuthenticated: React.Dispatch<React.SetStateAction<boolean>>;
@@ -43,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState< typeof INITIAL_USER>(INITIAL_USER);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [tradeData, setTradeData] = useState(trade_data)
 
   const checkAuthUser = async () => {
     setIsLoading(true);
@@ -51,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentAccount) {
         setUser(currentAccount);
         setIsAuthenticated(true);
-       // navigate("/");
+      // navigate("/buy");
         return true;
       }
 
@@ -71,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cookieFallback === null ||
       cookieFallback === undefined
     ) {
-    //  navigate("/signin");
+       navigate("/landing");
     }
 
     checkAuthUser();
@@ -80,6 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     setUser,
+    tradeData,
+    setTradeData,
     isLoading,
     isAuthenticated,
     setIsAuthenticated,

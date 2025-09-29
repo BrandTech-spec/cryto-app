@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SignInData, SignUpData, Transaction } from '../appwrite/appWriteConfig';
-import { createHistory, createNotification, createTransaction, getAllUser, getCurrentUser, getHistoryById, getLastNotification, getLastTransaction, getSpecialData, getUserNofication, getUserTransactions, signIn, signOut, signUp, updateSpecialData, updateUser } from '../appwrite/api';
+import { createHistory, createNotification, createTransaction, getAllUser, getCurrentUser, getCurrentUserById, getHistoryById, getLastNotification, getLastTransaction, getSpecialData, getUserHistory, getUserNofication, getUserTransactions, signIn, signOut, signUp, updateSpecialData, updateUser, updateUserNofication } from '../appwrite/api';
 
 // Query keys
 export const QUERY_KEYS = {
@@ -168,6 +168,19 @@ export const useUserNotifications = (userId: string | null) => {
   });
 };
 
+export const useUpdateNotification = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (userData: {notId:string, data:any}) => updateUserNofication(userData),
+    onSuccess: () => {
+      queryClient.clear(); // Clear all cached data on logout
+    },
+    onError: (error) => {
+      console.error('Sign out error:', error);
+    },
+  });
+};
 
 // Notification hooks
 export const useUpdateSpecialData = () => {
@@ -205,18 +218,36 @@ export const useGetLastHistory = (userId: string | null) => {
   });
 };
 
+export const useUserHistory = (userId: string | null) => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.userTransactions, userId],
+    queryFn: () => getUserHistory(userId!),
+    enabled: !!userId, // Only run if userId exists
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+};
+
+export const useGetCurrentUserById = (userId: string | null) => {
+  return useQuery({
+    queryKey: [QUERY_KEYS.userTransactions, userId],
+    queryFn: () => getCurrentUserById(userId!),
+    enabled: !!userId, // Only run if userId exists
+    staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+};
+
 export const useCreateHistory = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: (transactionData:  {
-      user_id: string;
-      body: string;
-      type: string;
-      amount: string;
-      withdrawal_wallet: string;
-      sentAt: number;
-    }) => 
+    mutationFn: (transactionData:   {
+      trade_id: string;
+      open_price: number;
+      close_price: number;
+      profit: number;
+      amount: number;
+      type: number;
+  }) => 
       createHistory(transactionData),
     onSuccess: () => {
       // Invalidate current user data and transaction data

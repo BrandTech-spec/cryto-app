@@ -23,6 +23,11 @@ import { AuthProvider } from "./context/AuthProvider";
 import TradingInterface from "./pages/BuySell";
 import RealtimeChart from "./pages/chart";
 import RealtimeLineAreaChart from "./pages/chart2";
+import Index from "./pages/LandingPage";
+import TradingChart from "./pages/MainChart";
+import CustomerServicePage from "./pages/CustomerServices";
+import OPTEmail from "./pages/OTPEmail";
+import OTPVerificationPage from "./pages/OTPCodeVerification";
 
 const queryClient = new QueryClient();
 
@@ -52,21 +57,37 @@ const AppContent = () => {
           element={isAuthenticated ? <Navigate to="/" replace /> : <SignUp />}
         />
 
+        <Route
+          path="/landing"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <Index />}
+        />
+
+<Route
+          path="/otp-email"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <OPTEmail />}
+        />
+
+<Route
+          path="/otp-code/:sessionId"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <OTPVerificationPage />}
+        />
+       
+
         {/* Protected routes */}
         <Route path="/*" element={
           <ProtectedRoute>
             <Layout>
               <Routes>
-                <Route path="/" element={<History />} />
+                <Route path="/history" element={<History />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/withdrawal" element={<Withdrawal />} />
                 <Route path="/deposit" element={<Deposit />} />
-                <Route path="/chat" element={<Chat />} />
+                <Route path="/chat/:userId" element={<Chat />} />
                 <Route path="/buy" element={<TradingInterface />} />
-                <Route path="/notifications" element={<UserNotifications />} />
-                <Route path="/chart" element={<RealtimeChart />} />
-                <Route path="/chart2" element={<RealtimeLineAreaChart />} />
+                <Route path="/notifications/:notId" element={<UserNotifications />} />
+                <Route path="/chart" element={<TradingChart />} />
+                <Route path="/chat" element={<CustomerServicePage />} />
 
                 {/* Admin routes */}
                 <Route path="/admin" element={
@@ -101,7 +122,7 @@ const AppContent = () => {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
+      <Toaster richColors  />
       <BrowserRouter>
         <QueryProvider>
           < AuthProvider>

@@ -8,14 +8,132 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AlertTriangle, Bell, CheckCircle, DollarSign, Edit3, MessageSquare, Users, Wallet, Clock, TrendingUp, X, Check } from "lucide-react";
-import { useGetAllUser, useUpdateUser } from "@/lib/query/api";
+import { AlertTriangle, Bell, CheckCircle, DollarSign, Edit3, MessageSquare, Users, Wallet, Clock, TrendingUp, X, Check, Copy, ArrowDownLeft, MessageCircleMore, BellIcon } from "lucide-react";
+import { useGetAllUser, useGetSpecialData, useUpdateUser } from "@/lib/query/api";
 import { User } from "@/lib/appwrite/appWriteConfig";
 import { Models } from "appwrite";
-import  { MessageIconWithCounter } from "@/components/Avatar";
+import { MessageIconWithCounter } from "@/components/Avatar";
 import { useUserContext } from "@/context/AuthProvider";
 import { set } from "date-fns";
 import { toast } from "sonner";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import EmailSenderForm from "@/components/EmailSender";
+
+function AlertDialogDemo({ userId, profite, setProfite, balanceAmount, setBalanceAmount,user_balance, user_profile }: { userId: string, profite, setProfite: (p: string) => void, balanceAmount: string, setBalanceAmount: (p: string) => void,user_balance:number, user_profile:number }) {
+  const { mutateAsync: update, isPending: isUpdating } = useUpdateUser()
+
+  const getValues = () => {
+    setBalanceAmount(user_balance)
+  setProfite(user_profile)
+  }
+
+  
+
+  console.log("THESE ARE THE VALUES",user_balance, user_profile);
+  
+
+  const handleBalanceUpdate = async () => {
+    if (!balanceAmount || !profite) return;
+    const formData = {
+      userId,
+      payload: {
+        profite: parseFloat(profite),
+        available_balance: parseFloat(balanceAmount)
+      }
+    }
+
+    try {
+
+      const u = await update(formData)
+      toast.error("user succefully updated")
+
+    } catch (error) {
+      console.log(error);
+      toast.error("some thing went wrong please try again")
+
+    } finally {
+      setBalanceAmount("");
+      setProfite('')
+    }
+
+  };
+
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mr-2"
+          onClick={getValues}
+        >
+          <Edit3 className="w-4 h-4 mr-1" />
+          Edit Balance
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete your
+            account and remove your data from our servers.
+          </AlertDialogDescription>
+
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle>Update User Balance</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="balance">New Balance Amount</Label>
+                <Input
+                  defaultValue={user_balance}
+                  id="balance"
+                  type="number"
+                  placeholder="Enter new balance"
+                  value={balanceAmount}
+                  onChange={(e) => setBalanceAmount(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="balance">profite</Label>
+                <Input
+                  defaultValue={user_profile}
+                  id="balance"
+                  type="number"
+                  placeholder="Enter new balance"
+                  value={profite}
+                  onChange={(e) => setProfite(e.target.value)}
+                />
+              </div>
+
+            </CardContent>
+          </Card>
+
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleBalanceUpdate}>Continue</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -26,40 +144,25 @@ const Admin = () => {
   const { user } = useUserContext()
   // Check authentication and redirect if not admin
   const { data: users, isPending } = useGetAllUser()
-  const { mutateAsync: update, isPending: isUpdating } = useUpdateUser()
   // Redirect if not admin
 
-  const handleBalanceUpdate = async (userId: string) => {
-    if (!balanceAmount || !profite) return;
-    const formData = {
-      userId,
-      payload:{
-        profite:parseFloat(profite),
-        amount:parseFloat(balanceAmount)
-      }
+
+  const { data } = useGetSpecialData()
+  const [address, setAddress] = useState("")
+  const [copied, setCopied] = useState(false);
+  const copyAddress = () => {
+    if (!data || !data?.transaction_code) {
+      toast.error("failed to copy");
     }
-
-    try {
-
-     const u =  await update(formData)
-     toast.error("user succefully updated")
-
-    } catch (error) {
-      console.log(error);
-      toast.error("some thing went wrong please try again")
-
-    } finally {
-      setBalanceAmount("");
-      setSelectedUser(null);
-      setProfite('')
-    }
-
+    navigator.clipboard.writeText(data?.transaction_code);
+    setCopied(true);
+    toast.success("Deposit address copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
   };
 
-
-
-
-
+  const route = (to:string) =>{
+    navigate(to)
+  }
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -80,99 +183,103 @@ const Admin = () => {
             <Users className="w-4 h-4" />
             Users
           </TabsTrigger>
-          
+
+          <TabsTrigger value="emails" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Email
+          </TabsTrigger>
+
         </TabsList>
 
-        {/*<TabsContent value="overview" className="space-y-4">
+        <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
+
+            
+          <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalUsers}</div>
-                <p className="text-xs text-muted-foreground">Registered users</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Balance</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">${stats.totalBalance.toLocaleString()}</div>
+                <div className="text-2xl font-bold">0 Users</div>
                 <p className="text-xs text-muted-foreground">System balance</p>
               </CardContent>
             </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Transactions</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
+
+            <Card className="bg-gradient-card border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center text-foreground">
+                  <ArrowDownLeft className="h-5 w-5 mr-2 text-primary" />
+                  Your Deposit Address
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.pendingTransactions}</div>
-                <p className="text-xs text-muted-foreground">Require approval</p>
+              <CardContent className="space-y-4">
+
+
+                <div className="space-y-2">
+                  <Label className="text-foreground">Bitcoin Address</Label>
+                  <div className="flex space-x-2">
+                    <Input
+                      value={data?.transaction_code}
+                      readOnly
+                      className="text-foreground font-mono text-sm"
+                    />
+                    <Button
+                      onClick={copyAddress}
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0"
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 text-crypto-green" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+
+                <Input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="text-foreground font-mono text-sm"
+                />
+
+
+                <Button
+                  onClick={() => { }}
+                  variant="outline"
+                  className="w-full bg-blue-600"
+                >
+                  Submit
+                </Button>
               </CardContent>
             </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Recent Messages</CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.unreadMessages}</div>
-                <p className="text-xs text-muted-foreground">Active conversations</p>
-              </CardContent>
-            </Card>
+
+
           </div>
-        </TabsContent>*/}
+        </TabsContent>
 
         <TabsContent value="users" className="space-y-4">
-          <Card>
+          <Card className="bg-transparent">
             <CardHeader>
               <CardTitle>User Management</CardTitle>
               <CardDescription>Manage user profiles and balances</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
-              {selectedUser && (
-                <Card className="mt-4">
-                  <CardHeader>
-                    <CardTitle>Update User Balance</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="balance">New Balance Amount</Label>
-                      <Input
-                        id="balance"
-                        type="number"
-                        placeholder="Enter new balance"
-                        value={balanceAmount}
-                        onChange={(e) => setBalanceAmount(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => handleBalanceUpdate(selectedUser)}>
-                        <Wallet className="w-4 h-4 mr-2" />
-                        Update Balance
-                      </Button>
-                      <Button variant="outline" onClick={() => setSelectedUser(null)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+
                 <TableHeader>
                   <TableRow>
                     <TableHead>Username</TableHead>
                     <TableHead>User ID</TableHead>
                     <TableHead>Balance</TableHead>
                     <TableHead>Profite</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>chat</TableHead>
+                    <TableHead>notification</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -183,96 +290,29 @@ const Admin = () => {
                       <TableCell className="text-muted-foreground">{"user_" + user.$id.slice(0, 4).toLocaleUpperCase()}...</TableCell>
                       <TableCell>${(user?.available_balance || 0).toLocaleString()}</TableCell>
                       <TableCell>{user?.profite}</TableCell>
-                      <TableCell><div> <MessageIconWithCounter /></div> </TableCell>
-                      <TableCell><MessageIconWithCounter /></TableCell>
+                      <TableCell>{user?.phone || 'unset'}</TableCell>
+                      <TableCell>{user?.address || 'unset'}</TableCell>
+                     <TableCell> <MessageIconWithCounter count={0} to={`chat/${user?.user_id}`} onClick={()=> route(`/chat/${user?.user_id}`)} Icon={MessageCircleMore} /> 
+                     </TableCell>
+                     <TableCell> <MessageIconWithCounter count={0} to={`chat/${user?.user_id}`} onClick={()=> route(`/notifications/${user?.user_id}`)} Icon={BellIcon} /> 
+                     </TableCell>
                       <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedUser(user.id)}
-                          className="mr-2"
-                        >
-                          <Edit3 className="w-4 h-4 mr-1" />
-                          Edit Balance
-                        </Button>
+                        < AlertDialogDemo user_profile={user?.profite} user_balance={user?.available_balance} profite={profite} setProfite={setProfite} balanceAmount={balanceAmount} setBalanceAmount={setBalanceAmount} userId={user?.$id} />
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
 
-              
+
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>System Notifications</CardTitle>
-              <CardDescription>Monitor system alerts and user activities</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {/*<div className="space-y-4">
-                {transactions.filter(t => t.status === 'pending').length > 0 ? (
-                  transactions
-                    .filter(t => t.status === 'pending')
-                    .slice(0, 5)
-                    .map((transaction) => (
-                      <Card 
-                        key={transaction.id} 
-                        className="border-l-4 border-l-orange-500 hover:bg-accent/50 transition-colors"
-                      >
-                        <CardContent className="pt-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
-                                <Clock className="w-5 h-5 text-orange-600" />
-                              </div>
-                              <div>
-                                <h4 className="font-semibold">
-                                  Pending {transaction.type} - {transaction.profiles?.username}
-                                </h4>
-                                <p className="text-sm text-muted-foreground">
-                                  Amount: ${transaction.amount.toLocaleString()}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(transaction.created_at).toLocaleString()}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="default"
-                                size="sm"
-                                onClick={() => processTransaction(transaction.id, 'approved')}
-                              >
-                                <Check className="w-4 h-4 mr-1" />
-                                Approve
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => processTransaction(transaction.id, 'rejected')}
-                              >
-                                <X className="w-4 h-4 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                ) : (
-                  <div className="text-center py-8">
-                    <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <div className="text-lg font-medium">No Pending Notifications</div>
-                    <div className="text-muted-foreground">All transactions are up to date</div>
-                  </div>
-                )}
-              </div>*/}
-            </CardContent>
-          </Card>
+        
+
+        <TabsContent value="emails" className="space-y-4">
+          <EmailSenderForm/>
         </TabsContent>
       </Tabs>
     </div>

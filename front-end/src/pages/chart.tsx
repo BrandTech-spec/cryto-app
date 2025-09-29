@@ -5,6 +5,7 @@ import { Activity, BarChart3, CandlestickChart, TrendingDown, TrendingUp, Volume
 import { useCreateHistory, useCreateNotification, useCreateTransaction, useGetLastHistory, useLastTransaction } from "@/lib/query/api";
 import { Transaction } from "@/lib/appwrite/appWriteConfig";
 import { useUserContext } from "@/context/AuthProvider";
+import { generateTradePrice } from "@/lib/utils";
 
 // --- Synthetic Data Generator ---
 let randomFactor = 25 + Math.random() * 25;
@@ -83,15 +84,45 @@ function* getNextRealtimeUpdate(realtimeData: any[]) {
   return null;
 }
 
-const {user} = useUserContext()
+// --- React component ---
+export default function RealtimeChartWiderCandles() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<any>(null);
+  const seriesRef = useRef<any>(null);
+  const intervalRef = useRef<any>(null);
+   const [prices, setPrices] = useState()
+  const [barSpacing, setBarSpacing] = useState(12);
+
+  
+const {user, setTradeData} = useUserContext()
 //----Get initial Timer-----
 const {data:last_hist, isPending:isFinding} = useGetLastHistory(user?.user_id)
 const {mutateAsync:createHistory, isPending:isCreating} = useCreateHistory()
 const {data:transaction} = useLastTransaction(user?.user_id)
 
-const history = async() =>{
+
+/** 
+
+//const prices =  generateTradePrice(transaction?.currency, transaction?.type)
+useEffect(() => {
+    if (transaction?.currency && transaction?.type) {
+      try {
+        const generated = generateTradePrice(transaction?.currency, transaction?.type);
+        setPrices(generated);
+      } catch (err) {
+        console.error("Failed to generate prices:", err);
+      }
+    }
+  },[])
+
+  const history = async() =>{
     const  payload = {
-        
+        trade_id: transaction?.$id,            // Required, max size 250
+        open_price: prices?.open_price,   // Nullable
+        close_price: prices?.close_price,  // Nullable
+        profit: transaction?.profite, // Defaults to 0
+        amount: transaction?.amount,  // Defaults to 0
+        type:transaction?.time
     }
     try {
         await createHistory(payload)
@@ -146,41 +177,33 @@ const history = async() =>{
   };
 };
 
-const [countdown, setCountdown] = React.useState(() => calculateTransactionCountdown(transaction));
-
-
-React.useEffect(() => {
-  if (!transaction || !transaction?.$createdAt || !transaction?.time) {
-    setCountdown(null);
-    return;
-  }
-
-  // Update countdown immediately
-  setCountdown(calculateTransactionCountdown(transaction));
-
-  // Set up interval to update every second
-  const interval = setInterval(() => {
-    const newCountdown = calculateTransactionCountdown(transaction);
-    setCountdown(newCountdown);
-    
-    // Clear interval if transaction has expired
-    if (!newCountdown) {
+const [countdown, setCountdown] = React.useState<null | {
+    isExpired: boolean;
+    hours: number;
+    minutes: number;
+    seconds: number;
+    totalSeconds: number;
+    formatted: string;
+  }>(null);
+  
+  useEffect(() => {
+    let mounted = true;
+  
+    const updateCountdown = async () => {
+      const result = await calculateTransactionCountdown(transaction);
+      if (mounted) setCountdown(result);
+    };
+  
+    updateCountdown();
+  
+    const interval = setInterval(updateCountdown, 1000);
+  
+    return () => {
+      mounted = false;
       clearInterval(interval);
-    }
-  }, 1000);
-
-  return () => clearInterval(interval);
-}, [transaction?.$id, transaction?.$createdAt, transaction?.time]);
-
-// --- React component ---
-export default function RealtimeChartWiderCandles() {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const chartRef = useRef<any>(null);
-  const seriesRef = useRef<any>(null);
-  const intervalRef = useRef<any>(null);
-
-  const [barSpacing, setBarSpacing] = useState(12);
-
+    };
+  }, [transaction?.$id, transaction?.$createdAt, transaction?.time]);
+  */
   // price states
   const [openPrice, setOpenPrice] = useState<number | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
@@ -194,10 +217,10 @@ export default function RealtimeChartWiderCandles() {
     const chart = createChart(containerRef.current, {
       layout: {
         textColor: "white",
-        background: { type: "solid", color: "#1e1e1e" },
+        background: { type: "solid", color: "transparent" },
       },
       width: containerRef.current.clientWidth,
-      height: 610,
+      height: 400,
     });
 
     const series = chart.addSeries(CandlestickSeries, {
@@ -238,9 +261,15 @@ export default function RealtimeChartWiderCandles() {
       setCurrentPrice(candle.close);
       setPriceChange(candle.close - candle.open);
       setPriceChangePercent(((candle.close - candle.open) / candle.open) * 100);
+      setTradeData({
+        open_price:candle.open?.toFixed(2),
+        close_price:candle.close?.toFixed(2),
+        price_changes:(candle.close - candle.open).toFixed(2),
+        percentage_changes:((candle.close - candle.open) / candle.open) * 100
+      })
     }, 500);
 
-    const onResize = () => {
+     const onResize = () => {
       chart.applyOptions({ width: containerRef.current!.clientWidth });
     };
     window.addEventListener("resize", onResize);
@@ -258,21 +287,26 @@ export default function RealtimeChartWiderCandles() {
     chartRef.current.timeScale().scrollToPosition(5);
   }, [barSpacing]);
 
+  
   return (
     <div className="relative" style={{ color: "white", fontFamily: "system-ui, sans-serif" }}>
         {/* Chart Header */}
-      <div className="flex absolute top-0 z-50  items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <h2 className="text-xl font-bold text-foreground">Intel OTC</h2>
-          <div className="flex items-center space-x-2">
-            <span className="text-2xl font-mono font-bold text-foreground">
-              ${currentPrice?.toFixed(2)}
-            </span>
-           
+      <div className="flex  items-center justify-between">
+        
+{/*
+        <div className="flex gap-2 mb-4 w-full items-center justify-center px-2">
+            <div className="bg-red-600 px-4 py-2 rounded flex-1 text-center">
+              <span className="text-white font-bold">4,258.20</span>
+            </div>
+            <div className="bg-gray-700 px-4 py-2 rounded">
+              <span className="text-white">{countdown?.formatted || "00:00:00"}</span>
+            </div>
+            <div className="bg-blue-600 px-4 py-2 rounded flex-1 text-center">
+              <span className="text-white font-bold">{currentPrice?.toFixed(2)}</span>
+            </div>
           </div>
-        </div>
 
-        {/* Chart Controls 
+         Chart Controls 
         <div className="flex items-center space-x-2">
           <Button 
             variant={chartType === 'candlestick' ? 'trading' : 'ghost'} 
@@ -309,7 +343,7 @@ export default function RealtimeChartWiderCandles() {
           overflow: "hidden",
         }}
       />
-      <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+      {/*<div style={{ display: "flex", gap: 16, marginTop: 12 }}>
         <div>
           <strong>Open Price:</strong> {openPrice?.toFixed(2)}
         </div>
@@ -332,7 +366,7 @@ export default function RealtimeChartWiderCandles() {
             onChange={(e) => setBarSpacing(Number(e.target.value))}
           />
         </div>
-      </div>
+      </div>*/}
     </div>
   );
 }

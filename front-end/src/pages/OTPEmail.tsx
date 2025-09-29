@@ -6,8 +6,9 @@ import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { account, ID } from "@/lib/appwrite/appWriteConfig";
 
-const SignIn = () => {
+const OPTEmail = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -20,24 +21,16 @@ const SignIn = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast({
-          title: "Sign In Failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Welcome back!",
-          description: "You have successfully signed in.",
-        });
-        navigate("/");
-      }
+      const sessionToken = await account.createEmailToken({
+        userId: ID.unique(),
+        email
+    });
+    
+    if (sessionToken) {
+      navigate(`/otp-code/${sessionToken.userId}`)
+    }
+    const userId = sessionToken.userId;
+      
     } catch (error) {
       toast({
         title: "An error occurred",
@@ -136,4 +129,4 @@ const SignIn = () => {
   );
 };
 
-export default SignIn;
+export default OPTEmail;

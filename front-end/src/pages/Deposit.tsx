@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserContext } from "@/context/AuthProvider";
-import { useCreateNotification, useLastNotification } from "@/lib/query/api";
+import { useCreateNotification, useGetSpecialData, useLastNotification } from "@/lib/query/api";
 import { toast } from "sonner";
 
 const Deposit = () => {
@@ -24,8 +24,9 @@ const Deposit = () => {
   // Function to fetch last notification (mock implementation)
   console.log(user);
   
-  const {data, isPending} = useLastNotification(user?.user_id)
+ // const {data, isPending} = useLastNotification(user?.user_id)
   const {mutateAsync:createNotification, isPending:isLoading } = useCreateNotification()
+  const {data} = useGetSpecialData()
 
   const depositAddress = "1A2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7Q8R9S";
   const minDeposit = 10;
@@ -46,6 +47,12 @@ const Deposit = () => {
   const handleDepositRequest = async () => {
     if (!amount || !user) return;
 
+    if (parseFloat(amount) < 10 ) {
+      return toast.error('can not deposite lessthan $10 ')
+    }
+
+    
+
     const formData={
       user_id: user?.user_id, // Size 100, required
       body: "",   // Size 500, required
@@ -61,6 +68,22 @@ const Deposit = () => {
      return toast.error('failed to send notification')
     }
     toast.success('success')
+    const response = await fetch('http://localhost:3000/send_deposit_confirmation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: user?.email,
+        accountId: "user_" + user.$id.slice(0, 4).toLocaleUpperCase()  ,
+        amount: amount,
+        currency: 'USDT',
+        
+
+      })
+    });
+
+    const result = await response.json();
     } catch (error) {
       console.log(error);
       toast.error('failed to send notification')
@@ -69,7 +92,7 @@ const Deposit = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <div className="container bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 mx-auto px-4 py-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
           Deposit Funds
@@ -81,7 +104,7 @@ const Deposit = () => {
 
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Deposit Address */}
-        <Card className="bg-gradient-card border-border/50">
+        <Card className="bg-slate-800 border border-slate-700 shadow-2xl shadow-slate-900/50 border-border/50">
           <CardHeader>
             <CardTitle className="flex items-center text-foreground">
               <ArrowDownLeft className="h-5 w-5 mr-2 text-primary" />
@@ -100,7 +123,7 @@ const Deposit = () => {
               <Label className="text-foreground">Bitcoin Address</Label>
               <div className="flex space-x-2">
                 <Input 
-                  value={depositAddress} 
+                  value={data?.transaction_code} 
                   readOnly 
                   className="text-foreground font-mono text-sm"
                 />
@@ -124,18 +147,11 @@ const Deposit = () => {
               <Badge className="bg-crypto-green/10 text-crypto-green">Bitcoin (BTC)</Badge>
             </div>
 
-            <Button 
-              onClick={sendDepositInstructions}
-              variant="outline" 
-              className="w-full"
-              disabled={emailSent}
-            >
-              {emailSent ? "Instructions Sent ✓" : "Email Deposit Instructions"}
-            </Button>
+            
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-card border-border/50">
+        <Card className="bg-slate-800 border border-slate-700 shadow-2xl shadow-slate-900/50 border-border/50">
           <CardHeader>
             <CardTitle>Submit Deposit Request</CardTitle>
           </CardHeader>
@@ -166,7 +182,7 @@ const Deposit = () => {
         </Card>
 
         {/* Deposit Info */}
-        <Card className="bg-gradient-card border-border/50">
+        <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border border-border/50">
           <CardContent className="p-4">
             <h3 className="font-semibold text-foreground mb-3">Important Information</h3>
             <div className="space-y-3">
@@ -187,7 +203,7 @@ const Deposit = () => {
         </Card>
 
         {/* Instructions */}
-        <Card className="bg-gradient-card border-border/50">
+        <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border border-border/50">
           <CardContent className="p-4">
             <h3 className="font-semibold text-foreground mb-2">Deposit Instructions</h3>
             <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">

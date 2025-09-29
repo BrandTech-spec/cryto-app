@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useSignIn } from "@/lib/query/api";
 import { validateSignUpData } from "@/lib/utils";
+import { toast } from "sonner";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
@@ -28,9 +29,13 @@ const SignIn = () => {
     if (validateSignUpData(formData)) {
 
       try {
-        await signInMutation.mutateAsync(formData);
-        // Handle successful signup (e.g., redirect to dashboard)
-        console.log('Account created successfully');
+        const sign_in = await signInMutation.mutateAsync(formData);
+
+        if (!sign_in) {
+          return toast.error("failed to create an account please try again")
+        }
+
+        navigate("/buy")
       } catch (error) {
         console.error('Signup failed:', error);
         // Handle signup error
@@ -41,29 +46,31 @@ const SignIn = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-900 flex flex-col justify-center px-3  py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex items-center justify-center mb-8">
-          <div className="flex items-center gap-3">
-            {/* OANDA Logo Recreation */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            {/* Logo */}
             <div className="flex flex-col">
               <div className="flex items-end gap-0.5 mb-1">
-                <div className="w-2 h-6 bg-green-500 transform -skew-x-12"></div>
-                <div className="w-2 h-8 bg-green-500 transform -skew-x-12"></div>
                 <div className="w-2 h-4 bg-green-500 transform -skew-x-12"></div>
+                <div className="w-2 h-6 bg-green-500 transform -skew-x-12"></div>
+                <div className="w-2 h-8 bg-blue-900 transform -skew-x-12"></div>
               </div>
               <div className="w-8 h-1 bg-green-500"></div>
             </div>
-            <div className="text-2xl font-bold text-white">OANDA</div>
+
+            <div>
+              <h1 className="text-3xl font-bold text-white/90">OANDA</h1>
+              <p className="text-sm text-gray-600 tracking-wider">SMARTER TRADING</p>
+            </div>
           </div>
         </div>
-        <div className="text-center">
-          <div className="text-sm text-gray-400 mb-8">SMARTER TRADING</div>
-        </div>
+
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10 border border-gray-700">
+        <div className="bg-gray-800 py-8 px-4 shadow sm:rounded-lg rounded-xl sm:px-10 border border-gray-700">
           <form className="space-y-6" onSubmit={handleSignIn}>
             <div>
               <Label htmlFor="email" className="block text-sm font-medium text-gray-300">

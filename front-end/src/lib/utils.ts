@@ -8,6 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 import React from "react";
 import { Transaction } from "./appwrite/appWriteConfig";
 import { toast } from "sonner";
+import { ranges } from "@/constants";
 
 /**
  * Calculates the countdown for a transaction based on creation time and duration
@@ -174,3 +175,53 @@ export function validateSignUpData(data: any): boolean {
   }
   return true;
 }
+
+type TradeState = "buy" | "sell";
+
+interface Range {
+  min: number;
+  max: number;
+}
+
+interface TradePrices {
+  open_price: number;
+  close_price: number;
+}
+
+export function generateTradePrice(
+  symbol: keyof typeof ranges,
+  state: TradeState
+): TradePrices {
+  console.log("THIS IS THE SYMBOL:", symbol,state);
+  
+  const range: Range = ranges[symbol];
+
+  if (!range) {
+    throw new Error(`Range not found for symbol: ${symbol}`);
+  }
+
+  // Generate open price randomly within range
+  const open_price =
+    Math.random() * (range.max - range.min) + range.min;
+
+  // Generate a small change for close price (1%-5% change)
+  const changeFactor = (Math.random() * 0.05 + 0.01); // 1%–6%
+  let close_price: number;
+
+  if (state === "buy") {
+    close_price = open_price * (1 + changeFactor); // price goes up
+  } else {
+    close_price = open_price * (1 - changeFactor); // price goes down
+  }
+
+  // Round to a reasonable number of decimals based on symbol
+  const decimals = open_price < 10 ? 4 : 2;
+  return {
+    open_price: parseFloat(open_price.toFixed(decimals)),
+    close_price: parseFloat(close_price.toFixed(decimals)),
+  };
+}
+
+// Example usage
+const trade = generateTradePrice("EUR/USD", "buy");
+console.log(trade); // { open_price: 1.12, close_price: 1.14 }

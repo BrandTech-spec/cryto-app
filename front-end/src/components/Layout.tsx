@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import Navigation from "./Navigation";
+import AuthoriseHeader from "./AuthoriseHeader";
 
 interface LayoutProps {
   children: ReactNode;
@@ -7,7 +8,9 @@ interface LayoutProps {
 
 const Layout = ({ children }: LayoutProps) => {
   return (
-    <div className="min-h-screen bg-background pb-16">
+    <div className="min-h-screen py-16 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-80">
+      
+      <AuthoriseHeader />
       {children}
       <Navigation />
     </div>

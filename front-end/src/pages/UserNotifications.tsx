@@ -4,15 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Bell, CheckCircle, AlertTriangle, DollarSign, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useUserNotifications } from "@/lib/query/api";
+import { useCurrentUser, useGetCurrentUserById, useUpdateNotification, useUserNotifications } from "@/lib/query/api";
 import { useUserContext } from "@/context/AuthProvider";
+import { updateSpecialData } from "@/lib/appwrite/api";
+import { toast } from "sonner";
 
 const UserNotifications = () => {
  // const { userId } = useParams();
   const navigate = useNavigate();
   const { user } = useUserContext();
   const {data, isPending} = useUserNotifications(user?.user_id)
-
+  const {notId} = useParams()
   // Mock user data - replace with real data from backend
   const users = [
     { id: "1", name: "John Doe", email: "john@example.com" },
@@ -30,14 +32,33 @@ const UserNotifications = () => {
     { id: "4", type: "deposit", amount: 3000, timestamp: "2024-01-17 09:30", status: "approved", description: "Ethereum deposit confirmation" },
   ];
 
-  const currentUser = users.find(user => user.id === userId);
+ // const currentUser = users.find(user => user.id === userId);
 
-  const handleNotificationAction = (notificationId: string, action: "approve" | "reject") => {
-    toast({
-      title: action === "approve" ? "Request Approved" : "Request Rejected",
-      description: `Transaction has been ${action}d for ${currentUser?.name}`,
-    });
+ const {mutateAsync:updateNotification} =  useUpdateNotification()
+
+  const handleNotificationAction = async(notificationId: string, action: "approve" | "reject") => {
+    const payload = {
+      notId:notificationId,
+      data:{
+        status: action === "approve" ? "completed" : 'failed'
+      }
+    }
+
+    try {
+    let not =  await updateNotification(payload)
+     if (not) {
+      toast.success("success")
+     }
+
+    } catch (error) {
+      console.log(error);
+       toast.success("failed to update notification")
+    }
   };
+
+   const {data:currentUser} = useGetCurrentUserById(user?.user_id)
+  
+    const {data:notifications, isPending:isLoading} = useUserNotifications(notId)
 
   if (!currentUser) {
     return (
@@ -56,7 +77,7 @@ const UserNotifications = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container   space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" onClick={() => navigate("/admin")}>
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -67,26 +88,26 @@ const UserNotifications = () => {
             <User className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">{currentUser.name}</h1>
+            <h1 className="text-2xl font-bold">{currentUser.user_name}</h1>
             <p className="text-muted-foreground">{currentUser.email}</p>
           </div>
         </div>
       </div>
 
-      <Card>
+      <Card className="bg-transparent ">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="w-5 h-5" />
-            Notifications for {currentUser.name}
+            Notifications for {currentUser.user_name}
           </CardTitle>
           <CardDescription>Review and manage transaction requests</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {userNotifications.map((notification) => (
-              <Card key={notification.id} className="border-l-4 border-l-primary">
+            {notifications?.map((notification) => (
+              <Card  key={notification.id} className=" bg-slate-800 border border-border/50 border-l-4 border-l-primary">
                 <CardContent className="pt-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex max-md:flex-col max-md:gap-3 items-center justify-between">
                     <div className="flex items-center gap-3">
                       {notification.type === "withdrawal" ? (
                         <AlertTriangle className="w-6 h-6 text-destructive" />
@@ -98,7 +119,7 @@ const UserNotifications = () => {
                           {notification.type === "withdrawal" ? "Withdrawal Request" : "Deposit Confirmation"}
                         </h4>
                         <p className="text-sm text-muted-foreground">
-                          ${notification.amount.toLocaleString()} - {notification.description}
+                           {currentUser.user_name} requestes a {notification?.type} of  ${notification.amount.toLocaleString()} at {notification.description}
                         </p>
                         <p className="text-xs text-muted-foreground">{notification.timestamp}</p>
                       </div>
@@ -110,7 +131,7 @@ const UserNotifications = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleNotificationAction(notification.id, "approve")}
+                            onClick={() => handleNotificationAction(notification.$id, "approve")}
                             className="text-success border-success hover:bg-success hover:text-success-foreground"
                           >
                             <CheckCircle className="w-4 h-4 mr-1" />
@@ -119,7 +140,7 @@ const UserNotifications = () => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleNotificationAction(notification.id, "reject")}
+                            onClick={() => handleNotificationAction(notification.$id, "reject")}
                             className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
                           >
                             <AlertTriangle className="w-4 h-4 mr-1" />

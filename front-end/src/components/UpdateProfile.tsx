@@ -1,5 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, User, Mail, Lock, DollarSign, Hash, Camera, Phone, Locate } from 'lucide-react';
+import { toast } from 'sonner';
+import { COLLECTION_ID_STORAGE, DATABASE_ID, databases, ID, storage } from '@/lib/appwrite/appWriteConfig';
+import { useUserContext } from '@/context/AuthProvider';
+import { useUpdateUser } from '@/lib/query/api';
 
 export default function UserDialogPreview({ setOpen}:{ setOpen:(p:boolean)=> void}) {
   const [formData, setFormData] = useState({
@@ -7,15 +11,14 @@ export default function UserDialogPreview({ setOpen}:{ setOpen:(p:boolean)=> voi
     email: 'john.doe@example.com',
     phone: '',
     address: '',
-    image_url: null
+  
   });
   
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef(null);
-
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
@@ -57,6 +60,28 @@ export default function UserDialogPreview({ setOpen}:{ setOpen:(p:boolean)=> voi
     }, 2000);
   };
 
+  const { user } = useUserContext()
+  const { mutateAsync: updateUser, isPending:isUploading } = useUpdateUser()
+  //const { data } = useCurrentUser()
+  
+// ============================== UPLOAD FILE
+async function createPost() {
+  try {
+
+   const   data = {
+    userId:user?.$id,
+    formData
+   }
+  
+   const updatrInfo = await updateUser(data)
+
+   if (!updatrInfo) return toast.error('failed to update profile picture');
+
+  } catch (error) {
+    console.log(error);
+  }
+}
+
   return (
     <div className="min-h-screen  flex items-center justify-center p-4">
       {/* Dialog */}
@@ -75,56 +100,7 @@ export default function UserDialogPreview({ setOpen}:{ setOpen:(p:boolean)=> voi
         {/* Form */}
         <div className="p-6">
           <div className="space-y-6">
-            {/* Image Upload Section */}
-            <div className="flex flex-col items-center space-y-4 py-4">
-              <div className="relative group">
-                {imagePreview ? (
-                  <img
-                    src={imagePreview}
-                    alt="User preview"
-                    className="w-28 h-28 rounded-full object-cover border-4 border-gray-600 shadow-lg ring-2 ring-blue-500/30"
-                  />
-                ) : (
-                  <div className="w-28 h-28 rounded-full bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center border-4 border-gray-600 shadow-lg">
-                    <User size={40} className="text-gray-400" />
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute -bottom-2 -right-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg transition-all hover:scale-105 group-hover:shadow-xl"
-                >
-                  <Camera size={18} />
-                </button>
-              </div>
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                className="hidden"
-              />
-              
-              {selectedImage && (
-                <button
-                  type="button"
-                  onClick={handleImageUpload}
-                  disabled={isUploading}
-                  className="flex items-center space-x-2 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-green-500/50 text-white rounded-full transition-all hover:shadow-md disabled:cursor-not-allowed"
-                >
-                  <Upload size={16} />
-                  <span>{isUploading ? 'Uploading...' : 'Upload New Image'}</span>
-                </button>
-              )}
-
-              {isUploading && (
-                <div className="w-full max-w-xs bg-gray-700 rounded-full h-2">
-                  <div className="bg-green-500 h-2 rounded-full animate-pulse" style={{width: '70%'}}></div>
-                </div>
-              )}
-            </div>
-
+           
             {/* Form Fields */}
             <div className="grid grid-cols-1  gap-6">
               {/* Username */}

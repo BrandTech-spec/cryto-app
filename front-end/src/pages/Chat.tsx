@@ -66,6 +66,10 @@ const Chat = () => {
           [
               Query.orderDesc('$createdAt'),
               Query.limit(100),
+              Query.or([
+                Query.equal("sender_id", userId),
+                Query.equal("reciever_id", userId)
+            ])
           ]
       )
       console.log(response.documents)
@@ -83,23 +87,33 @@ const Chat = () => {
         sender_id:userId === user.user_id ? userId : special.message_id ,
         reply:reply,
         body:message,
-        sentAt:new Date().toISOString,
+        sentAt:new Date(),
         
       }
 
-      const response = await databases.createDocument(
-              DATABASE_ID, 
-              COLLECTION_ID_MESSAGES, 
-              ID.unique(), 
-              payload,
-             
-          )
+      try {
+        const response = await databases.createDocument(
+          DATABASE_ID, 
+          COLLECTION_ID_MESSAGES, 
+          ID.unique(), 
+          payload,
+         
+      )
 
-      console.log('RESPONSE:', response)
+  console.log('RESPONSE:', response)
+        
+      } catch (error) {
+        console.log();
+        
+      }finally{
+
+      setMessage('')
+      }
+
+
 
       // setMessages(prevState => [response, ...prevState])
 
-      setMessageBody('')
 
   }
 
@@ -108,11 +122,12 @@ const Chat = () => {
       //setMessages(prevState => prevState.filter(message => message.$id !== message_id))
    } 
 
+ const sorted_messages = messages.sort((a, b) => new Date(a.$createdAt) - new Date(b.$createdAt));
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 flex flex-col">
       {/* Header */}
-      <div className="bg-card border-b border-border p-4 flex items-center gap-3">
+      <div className=" border-b fixed top-0 z-50 inset-x-0 border-border p-4 flex items-center gap-3">
         <Button 
           variant="ghost" 
           size="icon"
@@ -130,7 +145,6 @@ const Chat = () => {
           <h3 className="font-semibold text-foreground">Customer Support</h3>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-muted-foreground">Online • Avg response: 2 min</span>
           </div>
         </div>
         
@@ -145,15 +159,15 @@ const Chat = () => {
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 px-4 py-28 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800" ref={scrollRef}>
         {isPending ? (
           <div className="flex justify-center py-8">
             <div className="text-muted-foreground">Loading messages...</div>
           </div>
         ) : (
           <div className="space-y-4">
-            {messages.map((msg) => {
-              const isCurrentUser = msg.sender_id === user?.$id;
+            {sorted_messages?.map((msg) => {
+              const isCurrentUser = msg.sender_id === user?.user_id;
               const isAdmin = msg.is_admin;
               
               return (
@@ -176,10 +190,10 @@ const Chat = () => {
                           : "bg-muted text-foreground"
                       }`}
                     >
-                      <p className="text-sm">{msg.content}</p>
+                      <p className="text-sm">{msg.body}</p>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 px-2">
-                      {new Date(msg.created_at).toLocaleTimeString([], { 
+                      {new Date(msg.$createdAt).toLocaleTimeString([], { 
                         hour: '2-digit', 
                         minute: '2-digit' 
                       })}
@@ -195,23 +209,21 @@ const Chat = () => {
     
 
       {/* Message Input */}
-      <div className="bg-card border-t border-border p-4">
+      <div className=" border-t  border-border p-4">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <Paperclip className="h-5 w-5" />
-          </Button>
+         
           
           <div className="flex-1 relative">
             <Input
               placeholder="Type your message..."
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-              className="pr-12"
+              onKeyPress={(e) => e.key === "Enter" && handleSubmit(e)}
+              className="pr-12 bg-transparent"
             />
             <Button
               size="icon"
-              onClick={handleSendMessage}
+              onClick={handleSubmit}
               className="absolute right-1 top-1 h-8 w-8"
             >
               <Send className="h-4 w-4" />

@@ -1,4 +1,4 @@
-import { Client, Account, Databases } from 'appwrite';
+import { Client, Account, Databases, Storage } from 'appwrite';
 
 // Types
 export type User = {
@@ -54,6 +54,19 @@ export type SignInData = {
   password: string;
 };
 
+export interface History {
+  $id: string | null;          // Unique identifier, can be null initially
+  trade_id: string;            // Required, max size 250
+  open_price: number | null;   // Nullable
+  close_price: number | null;  // Nullable
+  profit: number;              // Defaults to 0
+  amount: number;              // Defaults to 0
+  $createdAt: string | null;   // Nullable ISO 8601 timestamp
+  $updatedAt: string | null;   // Nullable ISO 8601 timestamp
+}
+
+
+
 // Appwrite configuration
 export const client = new Client();
 
@@ -63,7 +76,7 @@ client
 
 export const account = new Account(client);
 export const databases = new Databases(client);
-
+export const storage = new Storage(client);
 // Environment variables
 export const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 export const USERS_COLLECTION_ID = import.meta.env.VITE_APPWRITE_USERS_COLLECTION_ID;
@@ -72,5 +85,7 @@ export const HISTORY_COLLECTION_ID = import.meta.env.VITE_APPWRITE_HISTORY_COLLE
 export const NOTIFICATION_COLLECTION_ID = import.meta.env.VITE_APPWRITE_NOTIFICATION_COLLECTION_ID;
 export const COLLECTION_ID_MESSAGES = import.meta.env.VITE_APPWRITE_MESSAGE_COLLECTION_ID;
 export const COLLECTION_ID_SPECIAL_DATA = import.meta.env.VITE_APPWRITE_SPECIAL_DATA_COLLECTION_ID
+export const COLLECTION_ID_STORAGE = import.meta.env.VITE_APPWRITE_STORAGE_BUCKET_ID
+
 
 export { ID } from 'appwrite';

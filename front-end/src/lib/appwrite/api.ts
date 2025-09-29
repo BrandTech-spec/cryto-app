@@ -1,5 +1,5 @@
 import { Query } from "appwrite";
-import { account, DATABASE_ID, databases, HISTORY_COLLECTION_ID, ID, NOTIFICATION_COLLECTION_ID, SignInData, SignUpData, Transaction, TRANSACTIONS_COLLECTION_ID, USERS_COLLECTION_ID } from "./appWriteConfig";
+import { account, COLLECTION_ID_SPECIAL_DATA, DATABASE_ID, databases, HISTORY_COLLECTION_ID, ID, NOTIFICATION_COLLECTION_ID, SignInData, SignUpData, Transaction, TRANSACTIONS_COLLECTION_ID, User, USERS_COLLECTION_ID } from "./appWriteConfig";
 import { NOTFOUND } from "dns/promises";
 
 // Authentication functions
@@ -70,7 +70,9 @@ export const signIn = async (userData: SignInData) => {
 
 export const signOut = async () => {
   try {
-    await account.deleteSession('current');
+   const del =  await account.deleteSession('current');
+
+   return del
   } catch (error) {
     console.error('Sign out error:', error);
     throw error;
@@ -90,6 +92,41 @@ export const getAllUser = async () => {
     return transactions.documents
   } catch (error) {
     console.error('Get user transactions error:', error);
+    throw error;
+  }
+};
+
+export const getCurrentUserById = async (userId:string) => {
+  try {
+    
+    
+    // Get user document by user_id
+    const userDocuments = await databases.listDocuments(
+      DATABASE_ID,
+      USERS_COLLECTION_ID,
+      [Query.equal('user_id', userId)]
+    );
+
+    if (userDocuments.documents.length === 0) {
+      throw new Error('User document not found');
+    }
+
+    const userDocument = userDocuments.documents[0];
+    
+    return {
+      id: userDocument.$id,
+      user_name: userDocument.user_name,
+      email: userDocument.email,
+      available_balance: userDocument.available_balance,
+      profite: userDocument.profite,
+      passcode: userDocument.passcode,
+      user_id: userDocument.user_id,
+      image_url: userDocument.image_url,
+      $createdAt: userDocument.$createdAt,
+      $updatedAt: userDocument.$updatedAt,
+    } 
+  } catch (error) {
+    console.error('Get current user error:', error);
     throw error;
   }
 };
@@ -120,9 +157,9 @@ export const getCurrentUser = async () => {
       passcode: userDocument.passcode,
       user_id: userDocument.user_id,
       image_url: userDocument.image_url,
-      createdAt: userDocument.$createdAt,
-      updatedAt: userDocument.$updatedAt,
-    } as User;
+      $createdAt: userDocument.$createdAt,
+      $updatedAt: userDocument.$updatedAt,
+    } 
   } catch (error) {
     console.error('Get current user error:', error);
     throw error;
@@ -289,6 +326,42 @@ export const getUserNofication = async (userId: string) => {
   }
 };
 
+export const updateUserNofication = async (payload: {notId:string, data:any}) => {
+  const {notId, data} = payload
+  try {
+    const transactions = await databases.updateDocument(
+      DATABASE_ID,
+      NOTIFICATION_COLLECTION_ID,
+      notId,
+      data
+    );
+
+    return transactions
+  } catch (error) {
+    console.error('Get user transactions error:', error);
+    throw error;
+  }
+};
+
+
+export const getUserHistory = async (userId: string) => {
+  try {
+    const transactions = await databases.listDocuments(
+      DATABASE_ID,
+      HISTORY_COLLECTION_ID,
+      [
+        Query.equal('user_id', userId),
+        Query.orderDesc('$createdAt')
+      ]
+    );
+
+    return transactions.documents
+  } catch (error) {
+    console.error('Get user transactions error:', error);
+    throw error;
+  }
+};
+
 
 /// special data
 
@@ -299,7 +372,7 @@ export const updateSpecialData = async (userData: {dataId:string, payload:any}) 
     // Create user document
     const userDocument = await databases.updateDocument(
       DATABASE_ID,
-      USERS_COLLECTION_ID,
+      COLLECTION_ID_SPECIAL_DATA,
       dataId,
       payload
       
@@ -316,7 +389,7 @@ export const getSpecialData = async () => {
   try {
     const transactions = await databases.listDocuments(
       DATABASE_ID,
-      NOTIFICATION_COLLECTION_ID,
+      COLLECTION_ID_SPECIAL_DATA,
       [
         Query.orderDesc('$createdAt'),
         Query.limit(1)
@@ -362,13 +435,13 @@ export const getHistoryById = async (tradeId: string) => {
   }
 };
 
-export const createHistory = async (transactionData:  {
-  user_id: string;
-  body: string;
-  type: string;
-  amount: string;
-  withdrawal_wallet: string;
-  sentAt: number;
+export const createHistory = async (transactionData:   {
+  trade_id: string;
+  open_price: number;
+  close_price: number;
+  profit: number;
+  amount: number;
+  type: number;
 }) => {
   try {
     const transaction = await databases.createDocument(
