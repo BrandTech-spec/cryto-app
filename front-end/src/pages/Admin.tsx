@@ -9,9 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertTriangle, Bell, CheckCircle, DollarSign, Edit3, MessageSquare, Users, Wallet, Clock, TrendingUp, X, Check, Copy, ArrowDownLeft, MessageCircleMore, BellIcon } from "lucide-react";
-import { useGetAllUser, useGetSpecialData, useUpdateUser } from "@/lib/query/api";
-import { User } from "@/lib/appwrite/appWriteConfig";
-import { Models } from "appwrite";
+import { useGetAllUser, useGetSpecialData, useUpdateSpecialData, useUpdateUser } from "@/lib/query/api";
+import { COLLECTION_ID_MESSAGES, DATABASE_ID, databases, NOTIFICATION_COLLECTION_ID, User } from "@/lib/appwrite/appWriteConfig";
+import { Models, Query } from "appwrite";
 import { MessageIconWithCounter } from "@/components/Avatar";
 import { useUserContext } from "@/context/AuthProvider";
 import { set } from "date-fns";
@@ -30,18 +30,18 @@ import {
 } from "@/components/ui/alert-dialog"
 import EmailSenderForm from "@/components/EmailSender";
 
-function AlertDialogDemo({ userId, profite, setProfite, balanceAmount, setBalanceAmount,user_balance, user_profile }: { userId: string, profite, setProfite: (p: string) => void, balanceAmount: string, setBalanceAmount: (p: string) => void,user_balance:number, user_profile:number }) {
+function AlertDialogDemo({ userId, profite, setProfite, balanceAmount, setBalanceAmount, user_balance, user_profile }: { userId: string, profite, setProfite: (p: string) => void, balanceAmount: string, setBalanceAmount: (p: string) => void, user_balance: number, user_profile: number }) {
   const { mutateAsync: update, isPending: isUpdating } = useUpdateUser()
 
   const getValues = () => {
     setBalanceAmount(user_balance)
-  setProfite(user_profile)
+    setProfite(user_profile)
   }
 
-  
 
-  console.log("THESE ARE THE VALUES",user_balance, user_profile);
-  
+
+  console.log("THESE ARE THE VALUES", user_balance, user_profile);
+
 
   const handleBalanceUpdate = async () => {
     if (!balanceAmount || !profite) return;
@@ -142,6 +142,7 @@ const Admin = () => {
   const [profite, setProfite] = useState("");
   const [currentUser, setCurrentUser] = useState<any>(null);
   const { user } = useUserContext()
+  // const [count, setCount] = useState(0)
   // Check authentication and redirect if not admin
   const { data: users, isPending } = useGetAllUser()
   // Redirect if not admin
@@ -149,6 +150,7 @@ const Admin = () => {
 
   const { data } = useGetSpecialData()
   const [address, setAddress] = useState("")
+  const [currency, setCurrency] = useState()
   const [copied, setCopied] = useState(false);
   const copyAddress = () => {
     if (!data || !data?.transaction_code) {
@@ -160,9 +162,107 @@ const Admin = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const route = (to:string) =>{
+  const { mutateAsync: updatingSpecialData, isPending: isUpdating } = useUpdateSpecialData()
+
+
+  const updateSData = async () => {
+
+
+    if (!address || address.length === 0 || address === null || address === undefined) {
+      return toast.error("Bitcoin Address can not be empty")
+    }
+
+    const payload = {
+      dataId: data?.$id,
+      payload: { transaction_code: address.trim(),currency }
+    }
+    try {
+      const update = await updatingSpecialData(payload)
+
+      if (update) {
+        return toast.success("Bitcoin Address successfully update")
+      }
+    } catch (error) {
+      console.log(error);
+      toast.error("something went wrong please try again")
+    } finally {
+      setAddress("")
+    }
+  }
+  const route = (to: string) => {
     navigate(to)
   }
+
+  const [messageCounts, setMessageCounts] = useState<Record<string, number>>({})
+  const [notCount, setNotCount] = useState({})
+  useEffect(() => {
+    if (!users) return
+
+    const fetchCounts = async () => {
+      const newCounts: Record<string, number> = {}
+      const notCounts: Record<string, number> = {}
+      for (const u of users) {
+        try {
+          const response = await databases.listDocuments(
+            DATABASE_ID,
+            COLLECTION_ID_MESSAGES,
+            [
+              Query.equal("sender_id", u.user_id),
+              Query.isNull("readAt")
+            ]
+          )
+          newCounts[u.user_id] = response.total // ✅ Appwrite gives total count
+        } catch (err) {
+          console.error("Error fetching count for", u.user_id, err)
+          newCounts[u.user_id] = 0
+        }
+      }
+
+      for (const u of users) {
+        try {
+          const response = await databases.listDocuments(
+            DATABASE_ID,
+            NOTIFICATION_COLLECTION_ID,
+            [
+              Query.equal("user_id", u.user_id),
+              Query.isNull("readAt")
+            ]
+          )
+          notCounts[u.user_id] = response.total // ✅ Appwrite gives total count
+        } catch (err) {
+          console.error("Error fetching count for", u.user_id, err)
+          notCounts[u.user_id] = 0
+        }
+      }
+
+      setMessageCounts(newCounts)
+      setNotCount(notCounts)
+    }
+
+    fetchCounts()
+  }, [users])
+
+
+
+  const geNotificationCount = async () => {
+        for (const u of users) {
+      try {
+        const response = await databases.updateDocument(
+          DATABASE_ID,
+          NOTIFICATION_COLLECTION_ID,
+          u?.$id,
+          {
+            readAt: Date.now()
+          }
+        )
+
+      } catch (err) {
+        console.error("Error fetching count for", u.user_id, err)
+
+      }
+    }
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -194,8 +294,8 @@ const Admin = () => {
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-            
-          <Card>
+
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Users</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -217,7 +317,7 @@ const Admin = () => {
 
 
                 <div className="space-y-2">
-                  <Label className="text-foreground">Bitcoin Address</Label>
+                  <Label className="text-foreground">Wallet Address</Label>
                   <div className="flex space-x-2">
                     <Input
                       value={data?.transaction_code}
@@ -241,18 +341,31 @@ const Admin = () => {
 
 
                 <Input
+                  defaultChecked={data?.transaction_code}
+                  placeholder="transaction Code"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   className="text-foreground font-mono text-sm"
                 />
 
+                <Input
+                  value={currency}
+                  placeholder=" current wallet "
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="text-foreground font-mono text-sm"
+                />
+
 
                 <Button
-                  onClick={() => { }}
+                  onClick={() => updateSData()}
                   variant="outline"
                   className="w-full bg-blue-600"
                 >
-                  Submit
+
+                  {
+                    isUpdating ? " updating Bitcoin Address..." : "Submit"
+                  }
+
                 </Button>
               </CardContent>
             </Card>
@@ -276,6 +389,7 @@ const Admin = () => {
                     <TableHead>User ID</TableHead>
                     <TableHead>Balance</TableHead>
                     <TableHead>Profite</TableHead>
+                    <TableHead>email</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>chat</TableHead>
@@ -284,23 +398,36 @@ const Admin = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users?.map((user) => (
-                    <TableRow key={user.$id}>
-                      <TableCell className="font-medium">{user?.user_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{"user_" + user.$id.slice(0, 4).toLocaleUpperCase()}...</TableCell>
-                      <TableCell>${(user?.available_balance || 0).toLocaleString()}</TableCell>
-                      <TableCell>{user?.profite}</TableCell>
-                      <TableCell>{user?.phone || 'unset'}</TableCell>
-                      <TableCell>{user?.address || 'unset'}</TableCell>
-                     <TableCell> <MessageIconWithCounter count={0} to={`chat/${user?.user_id}`} onClick={()=> route(`/chat/${user?.user_id}`)} Icon={MessageCircleMore} /> 
-                     </TableCell>
-                     <TableCell> <MessageIconWithCounter count={0} to={`chat/${user?.user_id}`} onClick={()=> route(`/notifications/${user?.user_id}`)} Icon={BellIcon} /> 
-                     </TableCell>
-                      <TableCell>
-                        < AlertDialogDemo user_profile={user?.profite} user_balance={user?.available_balance} profite={profite} setProfite={setProfite} balanceAmount={balanceAmount} setBalanceAmount={setBalanceAmount} userId={user?.$id} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {users?.map((user) => {
+                    
+
+                    return (
+                      <TableRow key={user.$id}>
+                        <TableCell className="font-medium">{user?.user_name}</TableCell>
+                        <TableCell className="text-muted-foreground">{"user_" + user.$id.slice(0, 4).toLocaleUpperCase()}...</TableCell>
+                        <TableCell>${(user?.available_balance || 0).toLocaleString()}</TableCell>
+                        <TableCell>{user?.profite}</TableCell>
+                        <TableCell>{user?.email || 'unset'}</TableCell>
+                        <TableCell>{user?.phone || 'unset'}</TableCell>
+                        <TableCell>{user?.address || 'unset'}</TableCell>
+                        <TableCell>
+                          <MessageIconWithCounter
+                            count={messageCounts[user.user_id] || 0}
+                            to={`chat/${user.user_id}`}
+                            onClick={() => route(`/chat/${user.user_id}`)}
+                            Icon={MessageCircleMore}
+                          />
+                        </TableCell>
+
+                        <TableCell> <MessageIconWithCounter count={notCount[user.user_id] || 0} to={`chat/${user?.user_id}`} onClick={() => route(`/notifications/${user?.user_id}`)} Icon={BellIcon} />
+                        </TableCell>
+                        <TableCell>
+                          < AlertDialogDemo user_profile={user?.profite} user_balance={user?.available_balance} profite={profite} setProfite={setProfite} balanceAmount={balanceAmount} setBalanceAmount={setBalanceAmount} userId={user?.$id} />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+
                 </TableBody>
               </Table>
 
@@ -309,10 +436,10 @@ const Admin = () => {
           </Card>
         </TabsContent>
 
-        
+
 
         <TabsContent value="emails" className="space-y-4">
-          <EmailSenderForm/>
+          <EmailSenderForm />
         </TabsContent>
       </Tabs>
     </div>

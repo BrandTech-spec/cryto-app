@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { SignInData, SignUpData, Transaction } from '../appwrite/appWriteConfig';
-import { createHistory, createNotification, createTransaction, getAllUser, getCurrentUser, getCurrentUserById, getHistoryById, getLastNotification, getLastTransaction, getSpecialData, getUserHistory, getUserNofication, getUserTransactions, signIn, signOut, signUp, updateSpecialData, updateUser, updateUserNofication } from '../appwrite/api';
+import { createHistory, createNotification, createTransaction, getAllUser, getCurrentUser, getCurrentUserById, getHistoryById, getLastNotification, getLastTransaction, getSpecialData, getUserHistory, getUserNofication, getUserTransactions, signIn, signOut, signUp, updateSpecialData, updateUser, updateUserNofication, updateUserTransactions } from '../appwrite/api';
 
 // Query keys
 export const QUERY_KEYS = {
@@ -119,6 +119,20 @@ export const useUserTransactions = (userId: string | null) => {
     queryFn: () => getUserTransactions(userId!),
     enabled: !!userId, // Only run if userId exists
     staleTime: 1000 * 60 * 2, // 2 minutes
+  });
+};
+
+export const useUpdateTransactions = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: (userData: {tradeId:string, data:any}) => updateUserTransactions(userData),
+    onSuccess: () => {
+      queryClient.clear(); // Clear all cached data on logout
+    },
+    onError: (error) => {
+      console.error('Sign out error:', error);
+    },
   });
 };
 

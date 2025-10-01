@@ -8,6 +8,8 @@ import { useCurrentUser, useGetCurrentUserById, useUpdateNotification, useUserNo
 import { useUserContext } from "@/context/AuthProvider";
 import { updateSpecialData } from "@/lib/appwrite/api";
 import { toast } from "sonner";
+import { COLLECTION_ID_MESSAGES, DATABASE_ID, databases, NOTIFICATION_COLLECTION_ID } from "@/lib/appwrite/appWriteConfig";
+import { useEffect } from "react";
 
 const UserNotifications = () => {
  // const { userId } = useParams();
@@ -34,6 +36,7 @@ const UserNotifications = () => {
 
  // const currentUser = users.find(user => user.id === userId);
 
+
  const {mutateAsync:updateNotification} =  useUpdateNotification()
 
   const handleNotificationAction = async(notificationId: string, action: "approve" | "reject") => {
@@ -59,7 +62,34 @@ const UserNotifications = () => {
    const {data:currentUser} = useGetCurrentUserById(user?.user_id)
   
     const {data:notifications, isPending:isLoading} = useUserNotifications(notId)
+   const getResetNotificationCount = async () => {
+     const userMessages = notifications.filter((m) => m.readAt === null )
+ 
 
+       for (const u of userMessages) {
+         try {
+           const response = await databases.updateDocument(
+             DATABASE_ID,
+             NOTIFICATION_COLLECTION_ID,
+             u?.$id,
+             {
+              readAt: new Date().toISOString()
+
+             }
+           )
+ 
+         } catch (err) {
+           console.error("Error fetching count for", u.user_id, err)
+ 
+         }
+       
+     } 
+   }
+
+   useEffect(() => {
+     getResetNotificationCount()
+   }, [])
+   
   if (!currentUser) {
     return (
       <div className="container mx-auto p-6">

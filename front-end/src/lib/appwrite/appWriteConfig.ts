@@ -41,12 +41,14 @@ export type Notification = {
 };
 
 
-export type SignUpData = {
+export type SignUpData =  {
   email: string;
   password: string;
   username: string;
   passcode: string;
-  referal_code: string
+  phone: string;
+  address: string;
+  referal_code: string;
 };
 
 export type SignInData = {

@@ -51,8 +51,6 @@ const Deposit = () => {
       return toast.error('can not deposite lessthan $10 ')
     }
 
-    
-
     const formData={
       user_id: user?.user_id, // Size 100, required
       body: "",   // Size 500, required
@@ -68,22 +66,7 @@ const Deposit = () => {
      return toast.error('failed to send notification')
     }
     toast.success('success')
-    const response = await fetch('http://localhost:3000/send_deposit_confirmation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: user?.email,
-        accountId: "user_" + user.$id.slice(0, 4).toLocaleUpperCase()  ,
-        amount: amount,
-        currency: 'USDT',
-        
-
-      })
-    });
-
-    const result = await response.json();
+  
     } catch (error) {
       console.log(error);
       toast.error('failed to send notification')
@@ -115,12 +98,12 @@ const Deposit = () => {
             <div className="text-center">
               <div className="bg-primary/10 rounded-lg p-8 mb-4">
                 <QrCode className="h-32 w-32 mx-auto text-primary mb-4" />
-                <p className="text-xs text-muted-foreground">QR Code for deposit address</p>
+                <p className="text-xs text-muted-foreground">Do Not Scan QR Code </p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-foreground">Bitcoin Address</Label>
+              <Label className="text-foreground">Wallet Address</Label>
               <div className="flex space-x-2">
                 <Input 
                   value={data?.transaction_code} 
@@ -144,7 +127,7 @@ const Deposit = () => {
 
             <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
               <span className="text-sm text-foreground">Network</span>
-              <Badge className="bg-crypto-green/10 text-crypto-green">Bitcoin (BTC)</Badge>
+              <Badge className="bg-crypto-green/10 text-crypto-green">{data?.currency} </Badge>
             </div>
 
             

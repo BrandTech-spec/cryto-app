@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { useSignOut } from "@/lib/query/api";
 import { Menu, X, User, LogOut, ChevronDown } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const AuthoriseHeader = () => {
@@ -36,9 +36,9 @@ const AuthoriseHeader = () => {
         // Add your logout logic here
         console.log("User logged out");
     };
-
+const {pathname} = useLocation()
     return (
-        <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700">
+        <header className={`fixed top-0  ${pathname.includes("/chat") && "hidden" } left-0 lg:hidden right-0 z-50 bg-slate-900/80 backdrop-blur-sm border-b border-slate-700`} >
             <div className="container mx-auto px-4 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}

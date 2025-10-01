@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Send, Mail, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 const EmailSenderForm = () => {
   const [activeTab, setActiveTab] = useState('welcome');
@@ -29,7 +30,7 @@ const EmailSenderForm = () => {
     traceId: ''
   });
 
-  const API_BASE_URL = 'http://localhost:3000';
+  const API_BASE_URL = 'https://cryto-email.onrender.com';
 
   const showMessage = (msg, type) => {
     setMessage(msg);
@@ -90,19 +91,30 @@ const EmailSenderForm = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/send_deposit_confirmation`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(depositData)
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: depositData.email,
+          accountId:depositData.accountId,
+          amount: depositData.amount,
+          currency: depositData.currency,
+          
+        })
       });
+  
 
-      if (response.ok) {
-        showMessage('Deposit confirmation email sent successfully!', 'success');
-        setDepositData({ email: '', accountId: '', amount: '', currency: 'USDT', transactionHash: '' });
-      } else {
-        throw new Error('Failed to send email');
+      const result = await response.json();
+   
+
+      if (result) {
+        toast.success(' email successfully sent')
       }
+      
+      
     } catch (error) {
-      showMessage('Failed to send deposit confirmation. Please try again.', 'error');
-      console.error('Error:', error);
+      toast.error('failed tosend email')
+      console.log(error);
     } finally {
       setLoading(false);
     }
@@ -122,19 +134,28 @@ const EmailSenderForm = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/send_withdrawal_confirmation`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(withdrawalData)
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: withdrawalData?.email,
+          accountId:withdrawalData.accountId,
+          amount: withdrawalData.amount,
+          currency:withdrawalData.currency,
+          traceId: withdrawalData.traceId
+        })
       });
 
-      if (response.ok) {
-        showMessage('Withdrawal confirmation email sent successfully!', 'success');
-        setWithdrawalData({ email: '', accountId: '', amount: '', currency: 'USDT', traceId: '' });
-      } else {
-        throw new Error('Failed to send email');
+      const result = await response.json();
+   
+
+      if (result) {
+        toast.success(' email successfully sent')
       }
     } catch (error) {
-      showMessage('Failed to send withdrawal confirmation. Please try again.', 'error');
-      console.error('Error:', error);
+      toast.error('failed tosend email')
+      console.log(error);
+      
     } finally {
       setLoading(false);
     }

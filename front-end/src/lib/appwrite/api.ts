@@ -24,6 +24,8 @@ export const signUp = async (userData: SignUpData) => {
         email: userData.email,
         available_balance: 0,
         profite: 0,
+        phone:userData.phone,
+        address:userData.address,
         passcode: userData.referal_code,
         user_id: newAccount.$id,
         image_url: null,
@@ -211,18 +213,7 @@ export const getLastTransaction = async (userId: string) => {
 
     const transaction = transactions.documents[0];
     
-    return {
-      id: transaction.$id,
-      user_id: transaction.user_id,
-      amount: transaction.amount,
-      currency: transaction.currency,
-      time: transaction.time,
-      type: transaction.type,
-      profite: transaction.profite,
-      current_state: transaction.current_state,
-      $createdAt: transaction.$createdAt,
-      $updatedAt: transaction.$updatedAt,
-    } as Transaction;
+    return transaction
   } catch (error) {
     console.error('Get last transaction error:', error);
     throw error;
@@ -258,6 +249,22 @@ export const getUserTransactions = async (userId: string) => {
   }
 };
 
+export const updateUserTransactions = async (payload: {tradeId:string, data:any}) => {
+  const {tradeId, data} = payload
+  try {
+    const transactions = await databases.updateDocument(
+      DATABASE_ID,
+      TRANSACTIONS_COLLECTION_ID,
+      tradeId,
+      data
+    );
+
+    return transactions
+  } catch (error) {
+    console.error('Get user transactions error:', error);
+    throw error;
+  }
+};
 // Notification functions
 export const createNotification = async (transactionData:  {
   user_id: string;

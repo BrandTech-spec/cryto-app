@@ -1,29 +1,20 @@
+"use client";
 import React, { useEffect, useRef, useState } from "react";
 import { CandlestickSeries, createChart } from "lightweight-charts";
-import { Button } from "@/components/ui/button";
-import { Activity, BarChart3, CandlestickChart, TrendingDown, TrendingUp, Volume2 } from "lucide-react";
-import { useCreateHistory, useCreateNotification, useCreateTransaction, useGetLastHistory, useLastTransaction } from "@/lib/query/api";
-import { Transaction } from "@/lib/appwrite/appWriteConfig";
 import { useUserContext } from "@/context/AuthProvider";
-import { generateTradePrice } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { ranges } from "@/constants";
 
 // --- Synthetic Data Generator ---
-let randomFactor = 25 + Math.random() * 25;
-const samplePoint = (i: number) =>
-  i *
-    (0.5 +
-      Math.sin(i / 1) * 0.2 +
-      Math.sin(i / 2) * 0.4 +
-      Math.sin(i / randomFactor) * 0.8 +
-      Math.sin(i / 50) * 0.5) +
-  200 +
-  i * 2;
-
 function generateData(
+  currency: keyof typeof ranges,
   numberOfCandles = 500,
   updatesPerCandle = 5,
   startAt = 100
 ) {
+  const { min, max } = ranges[currency];
+  const step = (max - min) / 500; // avg drift size
+
   const createCandle = (val: number, time: number) => ({
     time,
     open: val,
@@ -40,30 +31,29 @@ function generateData(
     high: Math.max(candle.high, val),
   });
 
-  randomFactor = 25 + Math.random() * 25;
-  const date = new Date(Date.UTC(2018, 0, 1, 12, 0, 0, 0));
   const numberOfPoints = numberOfCandles * updatesPerCandle;
   const initialData: any[] = [];
   const realtimeUpdates: any[] = [];
+
+  let previousValue = min + Math.random() * (max - min);
   let lastCandle: any;
-  let previousValue = samplePoint(-1);
+
+  // start from "now"
+  const now = Math.floor(Date.now() / 1000);
 
   for (let i = 0; i < numberOfPoints; ++i) {
-    if (i % updatesPerCandle === 0) {
-      date.setUTCDate(date.getUTCDate() + 1);
-    }
-    const time = date.getTime() / 1000;
-    let value = samplePoint(i);
-    const diff = (value - previousValue) * Math.random();
-    value = previousValue + diff;
+    // time increments by 1 min per candle
+    const time = now - numberOfPoints/2 * 60 + i * 60;
+
+    // simulate drift
+    let value = previousValue + (Math.random() - 0.5) * step * 10;
+    value = Math.min(max, Math.max(min, value));
     previousValue = value;
 
     if (i % updatesPerCandle === 0) {
       const candle = createCandle(value, time);
       lastCandle = candle;
-      if (i >= startAt) {
-        realtimeUpdates.push(candle);
-      }
+      if (i >= startAt) realtimeUpdates.push(candle);
     } else {
       const newCandle = updateCandle(lastCandle, value);
       lastCandle = newCandle;
@@ -85,131 +75,20 @@ function* getNextRealtimeUpdate(realtimeData: any[]) {
 }
 
 // --- React component ---
-export default function RealtimeChartWiderCandles() {
+export default function RealtimeChartWiderCandles({asset}:{asset:string}) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
   const intervalRef = useRef<any>(null);
-   const [prices, setPrices] = useState()
-  const [barSpacing, setBarSpacing] = useState(12);
 
-  
-const {user, setTradeData} = useUserContext()
-//----Get initial Timer-----
-const {data:last_hist, isPending:isFinding} = useGetLastHistory(user?.user_id)
-const {mutateAsync:createHistory, isPending:isCreating} = useCreateHistory()
-const {data:transaction} = useLastTransaction(user?.user_id)
-
-
-/** 
-
-//const prices =  generateTradePrice(transaction?.currency, transaction?.type)
-useEffect(() => {
-    if (transaction?.currency && transaction?.type) {
-      try {
-        const generated = generateTradePrice(transaction?.currency, transaction?.type);
-        setPrices(generated);
-      } catch (err) {
-        console.error("Failed to generate prices:", err);
-      }
-    }
-  },[])
-
-  const history = async() =>{
-    const  payload = {
-        trade_id: transaction?.$id,            // Required, max size 250
-        open_price: prices?.open_price,   // Nullable
-        close_price: prices?.close_price,  // Nullable
-        profit: transaction?.profite, // Defaults to 0
-        amount: transaction?.amount,  // Defaults to 0
-        type:transaction?.time
-    }
-    try {
-        await createHistory(payload)
-        
-    } catch (error) {
-        console.log(error);
-        
-    }
-}
- const calculateTransactionCountdown = async(transaction: Transaction | null) => {
-  console.log("Transaction input:", transaction);
-
-  if (!transaction || !transaction?.$createdAt || !transaction?.time) {
-    console.warn("❌ Missing data:", {
-      hasTransaction: !!transaction,
-      createdAt: transaction?.$createdAt,
-      time: transaction?.time,
-    });
-    return null;
-  }
-
-  const createdAt = new Date(transaction.$createdAt);
-  const durationInSeconds = transaction.time;
-  const expirationTime = new Date(createdAt.getTime() + (durationInSeconds * 1000));
-  const currentTime = new Date();
-
-  // Check if the transaction has expired
- if (currentTime >= expirationTime) {
-    if (last_hist.trade_id === transaction.$id) {
-       return { isExpired: true, hours: 0, minutes: 0, seconds: 0, totalSeconds: 0, formatted: "00:00:00" };
-    }else{
-        await history()
-    }
-}
-
-
-  // Calculate remaining time in milliseconds
-  const remainingMs = expirationTime.getTime() - currentTime.getTime();
-  
-  // Convert to hours, minutes, seconds
-  const hours = Math.floor(remainingMs / (1000 * 60 * 60));
-  const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((remainingMs % (1000 * 60)) / 1000);
-
-  return {
-    hours,
-    minutes,
-    seconds,
-    totalSeconds: Math.floor(remainingMs / 1000),
-    formatted: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`,
-    isExpired: false,
-  };
-};
-
-const [countdown, setCountdown] = React.useState<null | {
-    isExpired: boolean;
-    hours: number;
-    minutes: number;
-    seconds: number;
-    totalSeconds: number;
-    formatted: string;
-  }>(null);
-  
-  useEffect(() => {
-    let mounted = true;
-  
-    const updateCountdown = async () => {
-      const result = await calculateTransactionCountdown(transaction);
-      if (mounted) setCountdown(result);
-    };
-  
-    updateCountdown();
-  
-    const interval = setInterval(updateCountdown, 1000);
-  
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, [transaction?.$id, transaction?.$createdAt, transaction?.time]);
-  */
-  // price states
   const [openPrice, setOpenPrice] = useState<number | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [priceChange, setPriceChange] = useState<number>(0);
   const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
-  const [chartType, setChartType] = useState<'candlestick' | 'line' | 'area'>('candlestick');
+  const [barSpacing, setBarSpacing] = useState(12);
+
+  const isMobile = useIsMobile();
+  const { setTradeData } = useUserContext();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -221,6 +100,10 @@ const [countdown, setCountdown] = React.useState<null | {
       },
       width: containerRef.current.clientWidth,
       height: 400,
+      grid: {
+        vertLines: { color: "rgba(255,255,255,0.03)", visible: true },
+        horzLines: { color: "rgba(255,255,255,0.03)", visible: true },
+      },
     });
 
     const series = chart.addSeries(CandlestickSeries, {
@@ -239,7 +122,7 @@ const [countdown, setCountdown] = React.useState<null | {
       rightOffset: 5,
     });
 
-    const data = generateData(2500, 20, 1000);
+    const data = generateData(asset, 2500, 20, 1000);
     series.setData(data.initialData);
 
     chart.timeScale().fitContent();
@@ -256,20 +139,21 @@ const [countdown, setCountdown] = React.useState<null | {
       const candle = next.value;
       series.update(candle);
 
-      // update prices from last candle
       setOpenPrice(candle.open);
       setCurrentPrice(candle.close);
       setPriceChange(candle.close - candle.open);
       setPriceChangePercent(((candle.close - candle.open) / candle.open) * 100);
-      setTradeData({
-        open_price:candle.open?.toFixed(2),
-        close_price:candle.close?.toFixed(2),
-        price_changes:(candle.close - candle.open).toFixed(2),
-        percentage_changes:((candle.close - candle.open) / candle.open) * 100
-      })
-    }, 500);
 
-     const onResize = () => {
+      setTradeData({
+        open_price: candle.open,
+        close_price: candle.close,
+        price_changes: candle.close - candle.open,
+        percentage_changes:
+          ((candle.close - candle.open) / candle.open) * 100,
+      });
+    }, 1000);
+
+    const onResize = () => {
       chart.applyOptions({ width: containerRef.current!.clientWidth });
     };
     window.addEventListener("resize", onResize);
@@ -287,53 +171,11 @@ const [countdown, setCountdown] = React.useState<null | {
     chartRef.current.timeScale().scrollToPosition(5);
   }, [barSpacing]);
 
-  
   return (
-    <div className="relative" style={{ color: "white", fontFamily: "system-ui, sans-serif" }}>
-        {/* Chart Header */}
-      <div className="flex  items-center justify-between">
-        
-{/*
-        <div className="flex gap-2 mb-4 w-full items-center justify-center px-2">
-            <div className="bg-red-600 px-4 py-2 rounded flex-1 text-center">
-              <span className="text-white font-bold">4,258.20</span>
-            </div>
-            <div className="bg-gray-700 px-4 py-2 rounded">
-              <span className="text-white">{countdown?.formatted || "00:00:00"}</span>
-            </div>
-            <div className="bg-blue-600 px-4 py-2 rounded flex-1 text-center">
-              <span className="text-white font-bold">{currentPrice?.toFixed(2)}</span>
-            </div>
-          </div>
-
-         Chart Controls 
-        <div className="flex items-center space-x-2">
-          <Button 
-            variant={chartType === 'candlestick' ? 'trading' : 'ghost'} 
-            size="sm"
-            onClick={() => setChartType('candlestick')}
-          >
-            <CandlestickChart className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant={chartType === 'line' ? 'trading' : 'ghost'} 
-            size="sm"
-            onClick={() => setChartType('line')}
-          >
-            <Activity className="w-4 h-4" />
-          </Button>
-          <Button 
-            variant={chartType === 'area' ? 'trading' : 'ghost'} 
-            size="sm"
-            onClick={() => setChartType('area')}
-          >
-            <BarChart3 className="w-4 h-4" />
-          </Button>
-          <Button variant="ghost" size="sm">
-            <Volume2 className="w-4 h-4" />
-          </Button>
-        </div>*/}
-      </div>
+    <div
+      className="relative"
+      style={{ color: "white", fontFamily: "system-ui, sans-serif" }}
+    >
       <div
         ref={containerRef}
         style={{
@@ -343,30 +185,6 @@ const [countdown, setCountdown] = React.useState<null | {
           overflow: "hidden",
         }}
       />
-      {/*<div style={{ display: "flex", gap: 16, marginTop: 12 }}>
-        <div>
-          <strong>Open Price:</strong> {openPrice?.toFixed(2)}
-        </div>
-        <div>
-          <strong>Current Price:</strong> {currentPrice?.toFixed(2)}
-        </div>
-        <div>
-          <strong>Change:</strong>{" "}
-          {priceChange.toFixed(2)} ({priceChangePercent.toFixed(2)}%)
-        </div>
-        <div style={{ marginLeft: "auto" }}>
-          <label style={{ fontSize: 13, marginBottom: 6 }}>
-            Candle width: <strong>{barSpacing}px</strong>
-          </label>
-          <input
-            type="range"
-            min={4}
-            max={40}
-            value={barSpacing}
-            onChange={(e) => setBarSpacing(Number(e.target.value))}
-          />
-        </div>
-      </div>*/}
     </div>
   );
 }

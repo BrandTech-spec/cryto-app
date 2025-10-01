@@ -116,26 +116,7 @@ const {data:currentUser} = useCurrentUser()
     }
     toast.success('success')
 
-   const response = await fetch('http://localhost:3000/send_withdrawal_confirmation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: currentUser?.email,
-        accountId:"user_" + user.$id.slice(0, 4).toLocaleUpperCase() ,
-        amount: amount,
-        currency:'USDT',
-        traceId: address
-      })
-    });
-    
-    const result = await response.json();
-   
-
-    if (result) {
-      toast.success(' you will soon recieve an email confimation')
-    }
+ 
     
 
     } catch (error) {
@@ -203,11 +184,11 @@ const {data:currentUser} = useCurrentUser()
               />
             </div>
 
-            <Alert className="bg-red-200 border-red-400">
+            <Alert className="bg-red-900/40 border-red-400">
               <AlertCircle className="h-4 w-4 text-crypto-orange" />
               <AlertDescription className="text-crypto-orange">
                 {
-                  countdown && countdown !== null ? <div> time left to the next withdrawal {pad(countdown.hours)}:{pad(countdown.minutes)}:{pad(countdown.seconds)}</div> : "Double-check your wallet address. Transactions cannot be reversed."
+                  countdown && countdown !== null ? <div> time left to the next withdrawal {pad(countdown.hours)}:{pad(countdown.minutes)}:{pad(countdown.seconds) || "00:00:00"}</div> : "Double-check your wallet address. Transactions cannot be reversed."
                 }
                 Double-check your wallet address. Transactions cannot be reversed.
               </AlertDescription>
@@ -215,7 +196,7 @@ const {data:currentUser} = useCurrentUser()
 
             <Button 
               onClick={handleWithdrawal}
-              disabled={isLoading}
+              disabled={isLoading || countdown}
               className="w-full"
             >
               {isLoading ? (

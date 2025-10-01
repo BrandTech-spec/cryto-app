@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (currentAccount) {
         setUser(currentAccount);
         setIsAuthenticated(true);
-      // navigate("/buy");
+       navigate("/buy");
         return true;
       }
 

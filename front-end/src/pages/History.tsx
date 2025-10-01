@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useCurrentUser, useUserHistory, useUserNotifications, useUserTransactions } from "@/lib/query/api";
 import { useUserContext } from "@/context/AuthProvider";
+import { toast } from "sonner";
+import { getUserNofication } from "@/lib/appwrite/api";
 
 interface Position {
   id: string;
@@ -241,15 +243,33 @@ const History = () => {
         return `${baseClasses} bg-gray-900 text-gray-400`;
     }
   };
-
+  const [notifications, setNotifications] = useState([])
+const [isLoading, setIsLoading] = useState()
   const {user} = useUserContext()
-  const {data:transactions_history, } = useUserHistory(user?.user_id)
+  const {data:transactions_history, isPending } = useUserHistory(user?.user_id)
    const {data} = useCurrentUser()
 
-  const {data:notifications, isPending} = useUserNotifications(user?.user_id)
+ // const {data:notifications, isPending} = useUserNotifications(data?.user_id)
+  
+  const fetch = async () => {
+    try {
+      const not = await getUserNofication(user?.user_id)
+      setNotifications(not)
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+ 
+  useEffect(() => {
+
+    fetch()
+
+  }, [])
+
   const deposits = notifications?.filter((data) => data?.type === "deposit")
     const withdrawals = notifications?.filter((data) => data?.type === "withdraw")
-
+console.log('THESE ARE THE NOTIFICATIONS',notifications,deposits,withdrawals);
  //  const last_index= transactions_history?.length-1
   // const last_profit = transactions_history[last_index ]?.profit
   return (
@@ -305,7 +325,11 @@ const History = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="text-white px-4 py-4">
+      {
+          isLoading || isPending ? (
+            <Loader2 className="animate-spin w-6 h-6 text-white"/>
+          ):(
+            <div className="text-white px-4 py-4">
         {activeTab === "positions" && (
           <div>
             <h2 className="text-lg font-semibold mb-4">Positions</h2>
@@ -396,6 +420,8 @@ const History = () => {
           </div>
         )}
       </div>
+          )
+      }
     </div>
   );
 };

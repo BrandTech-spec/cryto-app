@@ -9,6 +9,107 @@ import { useToast } from "@/hooks/use-toast";
 import { useSignIn, useSignUp } from "@/lib/query/api";
 import { toast } from "sonner";
 import { validateSignUpData } from "@/lib/utils";
+import 'react-phone-number-input/style.css'
+//import flags from 'react-phone-number-input/flags'
+import { E164Number } from 'libphonenumber-js';
+//import PhoneInput from 'react-phone-number-input/input'
+import flags from 'react-phone-number-input/flags'
+import React, { useId } from "react"
+import { ChevronDownIcon, PhoneIcon } from "lucide-react"
+import * as RPNInput from "react-phone-number-input"
+import PhoneInput from 'react-phone-input-2';
+import 'react-phone-input-2/lib/style.css'
+import { cn } from "@/lib/utils"
+import Component from "@/components/Phon";
+
+
+
+
+/**
+const PhoneInput = ({ className, ...props }: React.ComponentProps<"input">) => {
+  return (
+    <Input
+      data-slot="phone-input"
+      className={cn(
+        "-ms-px rounded-s-none shadow-none focus-visible:z-10 border border-gray-600 bg-gray-700",
+        className
+      )}
+      {...props} // <- this is key
+    />
+  );
+}; */
+
+
+PhoneInput.displayName = "PhoneInput"
+
+type CountrySelectProps = {
+  disabled?: boolean
+  value: RPNInput.Country
+  onChange: (value: RPNInput.Country) => void
+  options: { label: string; value: RPNInput.Country | undefined }[]
+}
+
+const CountrySelect = ({
+  disabled,
+  value,
+  onChange,
+  options,
+}: CountrySelectProps) => {
+  const handleSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    onChange(event.target.value as RPNInput.Country)
+  }
+
+  return (
+    <div className="border-input border border-gray-600 bg-gray-700 text-muted-foreground focus-within:border-ring focus-within:ring-ring/50 hover:bg-accent hover:text-foreground has-aria-invalid:border-destructive/60 has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40 relative inline-flex items-center self-stretch rounded-s-md border py-2 ps-3 pe-2 transition-[color,box-shadow] outline-none focus-within:z-10 focus-within:ring-[3px] has-disabled:pointer-events-none has-disabled:opacity-50">
+      <div className="inline-flex items-center gap-1" aria-hidden="true">
+        <FlagComponent country={value} countryName={value} aria-hidden="true" />
+        <span className="text-muted-foreground/80">
+          <ChevronDownIcon size={16} aria-hidden="true" />
+        </span>
+      </div>
+      <select
+        disabled={disabled}
+        value={value}
+        onChange={handleSelect}
+        className="absolute inset-0 text-sm opacity-0 border border-gray-600 bg-gray-700"
+        aria-label="Select country"
+      >
+        <option key="default" value="">
+          Select a country
+        </option>
+        {options
+          .filter((x) => x.value)
+          .map((option, i) => (
+            <option key={option.value ?? `empty-${i}`} value={option.value}>
+              {option.label}{" "}
+              {option.value &&
+                `+${RPNInput.getCountryCallingCode(option.value)}`}
+            </option>
+          ))}
+      </select>
+    </div>
+  )
+}
+
+const FlagComponent = ({ country, countryName }: RPNInput.FlagProps) => {
+  const Flag = flags[country]
+
+  return (
+    <span className="w-5 overflow-hidden rounded-sm">
+      {Flag ? (
+        <Flag title={countryName} />
+      ) : (
+        <PhoneIcon size={16} aria-hidden="true" />
+      )}
+    </span>
+  )
+}
+
+
+
+
+
+
 
 const SignUp = () => {
   const [email, setEmail] = useState("");
@@ -18,13 +119,15 @@ const SignUp = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasscode, setShowPasscode] = useState(false);
+  const [address, setAddress] = useState('')
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [value, setValue] = useState("")
   const navigate = useNavigate();
-
+  const id = useId()
   const signUpMutation = useSignUp();
   const signInMutation = useSignIn();
-
+  const [phone, setPhone] = useState('');
   // utils/referral.ts
 
   /** Characters used in the random suffix (A-Z, 0-9) */
@@ -82,6 +185,8 @@ const SignUp = () => {
       password,
       username,
       passcode,
+      phone,
+      address,
       referal_code: generateReferral()
     }
 
@@ -183,6 +288,106 @@ const SignUp = () => {
               </div>
             </div>
 
+            {/*  <div className="*:not-first:mt-2" dir="ltr">
+      <Label htmlFor={id}>PhoneIcon number input</Label>
+      <RPNInput.default
+        className="flex rounded-md shadow-xs border border-gray-600 bg-gray-700"
+        international
+        flagComponent={FlagComponent}
+        countrySelectComponent={CountrySelect}
+        inputComponent={PhoneInput}
+        id={id}
+        placeholder="Enter phone number"
+        value={value as E164Number | undefined}
+        onChange={(newValue) => setValue(newValue ?? "")}
+      />
+      <p
+        className="text-muted-foreground mt-2 text-xs"
+        role="region"
+        aria-live="polite"
+      >
+        Built with{" "}
+        <a
+          className="hover:text-foreground underline"
+          href="https://gitlab.com/catamphetamine/react-phone-number-input"
+          target="_blank"
+          rel="noopener nofollow"
+        >
+          react-phone-number-input
+        </a>
+      </p>
+    </div>*/}
+
+            <div>
+              <Label htmlFor="password" className="block text-sm font-medium text-gray-300">
+                Address*
+              </Label>
+              <div className="mt-1 relative">
+                <Input
+                  id="address"
+                  name="address"
+                  type={"text"}
+                  required
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="appearance-none block w-full px-3 py-2 pr-10 border border-gray-600 bg-gray-700 text-white rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="password" className="block text-sm font-medium text-gray-300">
+                Phone*
+              </Label>
+              <div className="mt-1 relative">
+                <PhoneInput
+                  country={'us'}
+                  value={phone}
+                  onChange={setPhone}
+                  inputProps={{
+                    name: 'phone',
+                    required: true,
+                    autoFocus: false
+                  }}
+                  containerClass="phone-input-container"
+                  inputClass="phone-input-field"
+                  buttonClass="phone-input-button"
+                  dropdownClass="phone-input-dropdown"
+                  containerStyle={{
+                    width: '100%',
+                  }}
+                  buttonStyle={{
+                    backgroundColor: '#374151', // gray-700
+                    border: '1px solid #4b5563', // gray-600
+                    borderTopLeftRadius: '0.375rem',
+                    borderBottomLeftRadius: '0.375rem',
+                  }}
+                  inputStyle={{
+                    backgroundColor: '#374151', // gray-700
+                    border: '1px solid #4b5563', // gray-600
+                    borderRadius: '0.375rem',
+                    color: '#ffffff',
+                    width: '100%',
+                    height: '42px',
+                    fontSize: '14px',
+                    paddingLeft: '48px',
+                  }}
+                  dropdownStyle={{
+                    backgroundColor: '#374151', // gray-700
+                    border: '1px solid #4b5563',
+                    color: '#ffffff',
+                  }}
+                  searchStyle={{
+                    backgroundColor: '#1f2937', // gray-800
+                    border: '1px solid #4b5563',
+                    color: '#ffffff',
+                    padding: '8px',
+                  }}
+                />
+
+              </div>
+            </div>
 
 
             <div>
@@ -242,6 +447,8 @@ const SignUp = () => {
                 </button>
               </div>
             </div>
+
+
 
             <div>
               <Label htmlFor="passcode" className="block text-sm font-medium text-gray-300">
@@ -315,3 +522,9 @@ const SignUp = () => {
 };
 
 export default SignUp;
+
+
+
+
+
+

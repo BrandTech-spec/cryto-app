@@ -38,6 +38,7 @@ const SignIn = () => {
         navigate("/buy")
       } catch (error) {
         console.error('Signup failed:', error);
+        return toast.error("failed to create an account please try again")
         // Handle signup error
       } finally {
         setIsLoading(false);

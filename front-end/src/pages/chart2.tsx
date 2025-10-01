@@ -1,18 +1,18 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { AreaSeries, createChart, LineSeries } from "lightweight-charts";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useUserContext } from "@/context/AuthProvider";
 
+// === Chart Ranges ===
 export const ranges = {
-  // Forex Pairs
   "EUR/USD": { min: 0.95, max: 1.25 },
   "GBP/USD": { min: 1.15, max: 1.45 },
   "USD/JPY": { min: 100, max: 160 },
   "USD/CHF": { min: 0.85, max: 1.10 },
-  "AUD/USD": { min: 0.60, max: 0.85 },
+  "AUD/USD": { min: 0.6, max: 0.85 },
   "NZD/USD": { min: 0.55, max: 0.75 },
-  "USD/CAD": { min: 1.20, max: 1.45 },
-
-  // Commodities
+  "USD/CAD": { min: 1.2, max: 1.45 },
   "XAU/USD": { min: 1800, max: 2700 },
   "XAG/USD": { min: 18, max: 35 },
   USOIL: { min: 40, max: 120 },
@@ -21,12 +21,8 @@ export const ranges = {
   COPPER: { min: 3.0, max: 5.0 },
   WHEAT: { min: 4.0, max: 12.0 },
   CORN: { min: 3.0, max: 8.0 },
-
-  // Cryptos
   "BTC/USD": { min: 15000, max: 100000 },
   "ETH/USD": { min: 1000, max: 5000 },
-
-  // Indices
   US30: { min: 25000, max: 45000 },
   NAS100: { min: 10000, max: 20000 },
   SPX500: { min: 3000, max: 6000 },
@@ -46,16 +42,14 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
   const intervalRef = useRef<any>(null);
 
   const [currentPrice, setCurrentPrice] = useState<number>(0);
-  const [chartType, setChartType] = useState<"line" | "area">("line");
-
-  // asset range
   const { min, max } = ranges[asset] ?? { min: 1, max: 2 };
-  const volatility = 0.01; // relative moves
-  let lastTime = Math.floor(Date.now() / 1000);
-  let lastValue = min + (max - min) * Math.random();
+  const isMobile = useIsMobile();
+  const { setTradeData } = useUserContext();
 
   useEffect(() => {
     if (!containerRef.current) return;
+
+    let lastValue = randomInRange(min, max);
 
     const chart = createChart(containerRef.current, {
       layout: {
@@ -63,7 +57,11 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
         background: { type: "solid", color: "transparent" },
       },
       width: containerRef.current.clientWidth,
-      height: 400,
+      height:400,
+      grid: {
+        vertLines: { color: "rgba(255,255,255,0.05)", visible: true },
+        horzLines: { color: "rgba(255,255,255,0.05)", visible: true },
+      },
     });
 
     const lineSeries = chart.addSeries(LineSeries, {
@@ -72,8 +70,8 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
     });
 
     const areaSeries = chart.addSeries(AreaSeries, {
-      topColor: "rgba(38, 166, 154, 0.4)",
-      bottomColor: "rgba(38, 166, 154, 0)",
+      topColor: "rgba(38,166,154,0.4)",
+      bottomColor: "rgba(38,166,154,0)",
       lineColor: "#26a69a",
       lineWidth: 2,
     });
@@ -82,39 +80,68 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
     lineSeriesRef.current = lineSeries;
     areaSeriesRef.current = areaSeries;
 
-    // seed data
+    chart.applyOptions({
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (time: number) => {
+          const date = new Date(time * 1000); // UNIX → Date
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          const hours = String(date.getHours()).padStart(2, "0");
+          const minutes = String(date.getMinutes()).padStart(2, "0");
+          return `${month}/${day} ${hours}:${minutes}`;
+        },
+      },
+    });
+
+    // === Seed initial history ===
     const seedData: any[] = [];
+    const now = Math.floor(Date.now() / 1000);
     for (let i = 500; i >= 0; i--) {
-      const time = lastTime - i * 60;
-      const value = clamp(
-        lastValue * (1 + (Math.random() - 0.5) * volatility),
+      const time = now - i * 60; // 1-min intervals
+      lastValue = clamp(
+        lastValue * (1 + (Math.random() - 0.5) * 0.01),
         min,
         max
       );
-      seedData.push({ time, value });
-      lastValue = value;
+      seedData.push({ time, value: lastValue });
     }
+
     lineSeries.setData(seedData);
     areaSeries.setData(seedData);
     setCurrentPrice(lastValue);
 
-    // realtime updates
+    // === Realtime updates ===
     intervalRef.current = setInterval(() => {
-      lastTime += 60;
-      const changePercent = (Math.random() - 0.5) * volatility * 2;
-      let value = lastValue * (1 + changePercent);
-      value = clamp(value, min, max);
-      lastValue = value;
+      const time = Math.floor(Date.now() / 1000);
+      const open = lastValue;
 
-      const point = { time: lastTime, value };
+      const close = clamp(
+        open * (1 + (Math.random() - 0.5) * 0.01 * 2),
+        min,
+        max
+      );
+      lastValue = close;
+
+      const point = { time, value: close };
       lineSeries.update(point);
       areaSeries.update(point);
-      setCurrentPrice(value);
+
+      setTradeData({
+        open_price: open,
+        close_price: close,
+        price_changes: close - open,
+        percentage_changes: ((close - open) / open) * 100,
+      });
+
+      setCurrentPrice(close);
     }, 1000);
 
     const handleResize = () => {
       chart.applyOptions({ width: containerRef.current!.clientWidth });
     };
+
     window.addEventListener("resize", handleResize);
 
     return () => {
@@ -135,42 +162,14 @@ export default function RealtimeLineAreaChart({ asset }: Props) {
           overflow: "hidden",
         }}
       />
-
-      <div
-        style={{
-          display: "flex",
-          marginTop: 12,
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div>
-          <strong>{asset} Price:</strong>{" "}
-          {currentPrice.toFixed(5)}
-        </div>
-
-        <div style={{ display: "flex", gap: 8 }}>
-          <button style={buttonStyle} onClick={() => setChartType("line")}>
-            Line
-          </button>
-          <button style={buttonStyle} onClick={() => setChartType("area")}>
-            Area
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
 
-const buttonStyle: React.CSSProperties = {
-  padding: "6px 12px",
-  borderRadius: 6,
-  cursor: "pointer",
-  background: "rgba(40,44,52,1)",
-  color: "white",
-  border: "none",
-};
-
+// === Helpers ===
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max));
+}
+function randomInRange(min: number, max: number) {
+  return min + Math.random() * (max - min);
 }

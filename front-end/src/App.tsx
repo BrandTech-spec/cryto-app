@@ -28,6 +28,7 @@ import TradingChart from "./pages/MainChart";
 import CustomerServicePage from "./pages/CustomerServices";
 import OPTEmail from "./pages/OTPEmail";
 import OTPVerificationPage from "./pages/OTPCodeVerification";
+import DeskTopChart from "./pages/DeskTopChart";
 
 const queryClient = new QueryClient();
 
@@ -88,6 +89,7 @@ const AppContent = () => {
                 <Route path="/notifications/:notId" element={<UserNotifications />} />
                 <Route path="/chart" element={<TradingChart />} />
                 <Route path="/chat" element={<CustomerServicePage />} />
+                <Route path="/desk-chat" element={<DeskTopChart />} />
 
                 {/* Admin routes */}
                 <Route path="/admin" element={

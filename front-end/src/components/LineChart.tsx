@@ -1,37 +1,40 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { createChart, LineSeries } from "lightweight-charts";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { useUserContext } from "@/context/AuthProvider";
 
+// === Chart Ranges & Volatility ===
 export const ranges = {
   // Forex Pairs
-  "EUR/USD": { min: 0.95, max: 1.25 },
-  "GBP/USD": { min: 1.15, max: 1.45 },
-  "USD/JPY": { min: 100, max: 160 },
-  "USD/CHF": { min: 0.85, max: 1.10 },
-  "AUD/USD": { min: 0.60, max: 0.85 },
-  "NZD/USD": { min: 0.55, max: 0.75 },
-  "USD/CAD": { min: 1.20, max: 1.45 },
+  "EUR/USD": { min: 0.95, max: 1.25, volatility: 0.002 },
+  "GBP/USD": { min: 1.15, max: 1.45, volatility: 0.0025 },
+  "USD/JPY": { min: 100, max: 160, volatility: 0.0015 },
+  "USD/CHF": { min: 0.85, max: 1.10, volatility: 0.002 },
+  "AUD/USD": { min: 0.60, max: 0.85, volatility: 0.002 },
+  "NZD/USD": { min: 0.55, max: 0.75, volatility: 0.002 },
+  "USD/CAD": { min: 1.20, max: 1.45, volatility: 0.002 },
 
   // Commodities
-  "XAU/USD": { min: 1800, max: 2700 },
-  "XAG/USD": { min: 18, max: 35 },
-  USOIL: { min: 40, max: 120 },
-  UKOIL: { min: 45, max: 125 },
-  NATGAS: { min: 1.5, max: 10.0 },
-  COPPER: { min: 3.0, max: 5.0 },
-  WHEAT: { min: 4.0, max: 12.0 },
-  CORN: { min: 3.0, max: 8.0 },
+  "XAU/USD": { min: 1800, max: 2700, volatility: 0.003 },
+  "XAG/USD": { min: 18, max: 35, volatility: 0.004 },
+  USOIL: { min: 40, max: 120, volatility: 0.005 },
+  UKOIL: { min: 45, max: 125, volatility: 0.005 },
+  NATGAS: { min: 1.5, max: 10.0, volatility: 0.01 },
+  COPPER: { min: 3.0, max: 5.0, volatility: 0.004 },
+  WHEAT: { min: 4.0, max: 12.0, volatility: 0.005 },
+  CORN: { min: 3.0, max: 8.0, volatility: 0.005 },
 
   // Cryptos
-  "BTC/USD": { min: 15000, max: 100000 },
-  "ETH/USD": { min: 1000, max: 5000 },
+  "BTC/USD": { min: 15000, max: 100000, volatility: 0.02 },
+  "ETH/USD": { min: 1000, max: 5000, volatility: 0.015 },
 
   // Indices
-  US30: { min: 25000, max: 45000 },
-  NAS100: { min: 10000, max: 20000 },
-  SPX500: { min: 3000, max: 6000 },
-  GER30: { min: 10000, max: 20000 },
-  FRA40: { min: 4000, max: 8000 },
+  US30: { min: 25000, max: 45000, volatility: 0.0015 },
+  NAS100: { min: 10000, max: 20000, volatility: 0.002 },
+  SPX500: { min: 3000, max: 6000, volatility: 0.0015 },
+  GER30: { min: 10000, max: 20000, volatility: 0.0015 },
+  FRA40: { min: 4000, max: 8000, volatility: 0.0015 },
 };
 
 type Props = {
@@ -46,14 +49,17 @@ export default function RealtimeLineChart({ asset }: Props) {
   const priceLineRef = useRef<any>(null);
 
   const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const isMobile = useIsMobile();
+  const { setTradeData } = useUserContext();
 
-  // --- asset range setup
-  const { min, max } = ranges[asset] ?? { min: 1, max: 2 };
-  const volatility = 0.01; // tweak per asset type (relative movement)
+  const { min, max, volatility } = ranges["BTC/USD"] ?? {
+    min: 1,
+    max: 2,
+    volatility: 0.01,
+  };
 
   let lastTime = Math.floor(Date.now() / 1000);
-  let lastValue =
-    min + (max - min) * Math.random(); // start somewhere inside range
+  let lastValue = min + (max - min) * Math.random();
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -65,6 +71,10 @@ export default function RealtimeLineChart({ asset }: Props) {
       },
       width: containerRef.current.clientWidth,
       height: 400,
+      grid: {
+        vertLines: { color: "rgba(255, 255, 255, 0.03)", style: 0, visible: true },
+        horzLines: { color: "rgba(255, 255, 255, 0.03)", style: 0, visible: true },
+      },
       crosshair: { mode: 1 },
     });
 
@@ -104,25 +114,34 @@ export default function RealtimeLineChart({ asset }: Props) {
     // realtime updates
     intervalRef.current = setInterval(() => {
       lastTime += 60;
-      const changePercent = (Math.random() - 0.5) * volatility * 2;
-      let value = lastValue * (1 + changePercent);
-      value = clamp(value, min, max);
-      lastValue = value;
 
-      const point = { time: lastTime, value };
+      const open = lastValue;
+      const changePercent = (Math.random() - 0.5) * volatility * 2;
+      let close = open * (1 + changePercent);
+      close = clamp(close, min, max);
+      lastValue = close;
+
+      const point = { time: lastTime, value: close };
       lineSeries.update(point);
-      setCurrentPrice(value);
+      setCurrentPrice(close);
 
       if (priceLineRef.current) {
         lineSeries.removePriceLine(priceLineRef.current);
       }
       priceLineRef.current = lineSeries.createPriceLine({
-        price: value,
+        price: close,
         color: "#ff9800",
         lineWidth: 2,
         lineStyle: 2,
         axisLabelVisible: true,
         title: "Current",
+      });
+
+      setTradeData({
+        open_price: open,
+        close_price: close,
+        price_changes: close - open,
+        percentage_changes: ((close - open) / open) * 100,
       });
     }, 1000);
 
@@ -136,7 +155,7 @@ export default function RealtimeLineChart({ asset }: Props) {
       window.removeEventListener("resize", handleResize);
       chart.remove();
     };
-  }, [asset]); // rerun when asset changes
+  }, [asset]);
 
   return (
     <div style={{ color: "white", fontFamily: "system-ui, sans-serif" }}>
@@ -149,25 +168,11 @@ export default function RealtimeLineChart({ asset }: Props) {
           overflow: "hidden",
         }}
       />
-
-      <div
-        style={{
-          display: "flex",
-          marginTop: 12,
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div>
-          <strong>{asset} Price:</strong>{" "}
-          {currentPrice.toFixed(5)}
-        </div>
-      </div>
     </div>
   );
 }
 
-// helper clamp
+// helper
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(value, max));
 }

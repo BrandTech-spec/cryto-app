@@ -7,45 +7,51 @@ import {
   History,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { COLLECTION_ID_MESSAGES, DATABASE_ID, databases } from '@/lib/appwrite/appWriteConfig';
+import { Query } from 'appwrite';
+import { useUserContext } from '@/context/AuthProvider';
 
 const Navigation = () => {
   const [activeTab, setActiveTab] = useState('Trades');
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(window.scrollY);
+  const [count, setCount] = useState(0)
+  const {user} = useUserContext()
   const timerRef = useRef(null);
+ const {pathname} = useLocation()
 
   const navigationItems = [
     {
       id: '/buy',
       label: 'Trades',
       icon: TrendingUp,
-      active: activeTab === 'Trades'
+      active: pathname.includes('/buy')
     },
     {
       id: '/chart',
       label: 'Signals',
       icon: AlignHorizontalDistributeCenter,
-      active: activeTab === 'Signals'
+      active: pathname.includes('/chart')
     },
     {
       id: '/history',
-      label: 'Pending ...',
+      label: 'History',
       icon: History,
-      active: activeTab === 'Pending ...'
+      active: pathname.includes('/history')
     },
     {
       id: '/chat',
       label: 'Messages',
       icon: MessageCircle,
-      active: activeTab === 'Messages',
+      active: pathname.includes('/chat'),
       hasNotification: true,
-      notificationCount: 3
+      notificationCount: count || 0
     },
     {
       id: '/settings',
       label: 'Settings',
       icon: Settings,
-      active: activeTab === 'Settings'
+      active: pathname.includes('/settings'),
     }
   ];
 
@@ -91,10 +97,26 @@ const Navigation = () => {
     lastScrollY.current = currentScrollY;
   };
 
-  const {pathname} = useLocation()
+    const getMessages = async () => {
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        COLLECTION_ID_MESSAGES,
+        [
+          Query.orderDesc('$createdAt'),
+          Query.limit(100),
+          Query.equal("reciever_id", user?.user_id)
+        ]
+      )
+      console.log(response.documents)
+      setCount(response?.documents?.length)
+    }
+useEffect(() => {
+  getMessages()
+}, [])
+
   return (
     <div
-      className={`fixed bottom-3 w-[90%] max-w-md left-5 z-50 rounded-full transition-all duration-500 ease-in-out ${
+      className={`fixed bottom-3 w-[90%] max-w-md lg:hidden left-5 z-50 rounded-full transition-all duration-500 ease-in-out ${pathname.includes("/chat") && "hidden" } ${
         isVisible ? 'translate-y-0 opacity-100' : 'translate-y-24 opacity-0 pointer-events-none'
       }`}
     >
@@ -110,12 +132,12 @@ const Navigation = () => {
               >
                 <div
                   className={`relative p-1 rounded-lg mb-1 transition-colors ${
-                    item.active ? 'bg-blue-500/20' : 'group-hover:bg-gray-700/50'
+                    item.active ? 'bg-blue-500' : 'group-hover:bg-gray-700/50'
                   }`}
                 >
                   <IconComponent
                     className={`w-6 h-6 transition-colors ${
-                      item.active ? 'text-blue-400' : 'text-gray-400 group-hover:text-gray-300'
+                      item.active ? 'text-blue-400 text-gray-200' : 'text-gray-400 group-hover:text-gray-300'
                     }`}
                   />
                   {item.hasNotification && (

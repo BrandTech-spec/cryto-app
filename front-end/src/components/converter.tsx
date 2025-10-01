@@ -1,3 +1,16 @@
+
+interface ConverterFieldProps {
+  className?: string;
+  isLast?: boolean;
+  defaultValue: number;
+  balance: string;
+  defaultCoin: string;
+  coins: {
+    id: string;
+    name: string;
+    image: string;
+  }[];
+}
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,7 +86,7 @@ const initialLowerOrderData: OrderData[] = [
   { price: 118073.85, amount: 0.00135, priceStr: "118,073.85", amountStr: "0.00135" },
 ];
 
-const TradingInterface = () => {
+export function Converter() {
   const [orderType, setOrderType] = useState<"buy" | "sell">("buy");
 
   // Buy form states
@@ -231,9 +244,9 @@ const TradingInterface = () => {
     }
 
     const data = {
-      userId:currentUser?.id,
+      userId:user?.user_id,
       payload:{
-        available_balance: currentUser?.available_balance - parseFloat(buyPrice),
+        amount:currentUser?.available_balance - parseFloat(buyAmount),
       }
     }
     try {
@@ -292,9 +305,9 @@ const TradingInterface = () => {
     }
 
     const data = {
-      userId:currentUser?.id,
+      userId:user?.user_id,
       payload:{
-        available_balance:currentUser?.available_balance - parseFloat(sellPrice),
+        amount:currentUser?.available_balance - parseFloat(sellAmount),
       }
     }
     try {
@@ -451,109 +464,10 @@ const TradingInterface = () => {
     setIsOpen(false);
   };
 
+ 
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-4">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 h-full">
-        {/* Left side - Order Book */}
-        <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border-border/50">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className=" p-6 flex items-center justify-center">
-
-                  <div className="relative">
-                    <button
-                      onClick={() => setIsOpen(!isOpen)}
-                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-left
-                     text-white font-mono text-sm hover:bg-gray-750 focus:outline-none 
-                     focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                     transition-all duration-200 flex items-center justify-between"
-                    >
-                      <span className="text-white">
-                        {selectedAsset}
-                      </span>
-                      <ChevronDown
-                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''
-                          }`}
-                      />
-                    </button>
-
-                    {isOpen && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-700 
-                          rounded-lg shadow-2xl z-50 max-h-80 overflow-y-auto">
-                        {options.map((asset) => (
-                          <button
-                            key={asset}
-                            onClick={() => handleSelect(asset)}
-                            className="w-full px-4 py-3 text-left text-white font-mono text-sm
-                           hover:bg-gray-700 focus:outline-none focus:bg-gray-700
-                           transition-colors duration-150 border-b border-gray-750 last:border-b-0"
-                          >
-                            {asset}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-
-
-                </div>
-                <Badge variant={priceChange >= 0 ? "default" : "destructive"} className={priceChange >= 0 ? "bg-green-600 hover:bg-green-700 text-white" : "bg-red-600 hover:bg-red-700 text-white"}>
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
-                </Badge>
-              </div>
-             
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="text-left text-gray-400 text-xs py-2">Price  (USDT)</th>
-                  <th className="text-right text-gray-400 text-xs py-2">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orderBookData.map((order, index) => (
-                  <tr key={index} className="border-b border-gray-700 hover:bg-gray-700/20">
-                    <td className="font-mono text-sm text-red-400 py-1">
-                      {order.priceStr}
-                    </td>
-                    <td className="text-right font-mono text-sm text-gray-400 py-1">
-                      {order.amountStr}
-                    </td>
-                  </tr>
-                ))}
-
-                {/* Current Price Highlight */}
-                <tr className="bg-gray-700/30 border-b border-gray-700">
-                  <td className="py-3">
-                    <span className={`text-lg font-mono font-bold ${priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                      {formatPrice(currentPrice)}
-                    </span>
-                  </td>
-                  <td className="text-right text-sm text-gray-400 py-3">
-                    ≈ ${formatPrice(currentPrice)}
-                  </td>
-                </tr>
-
-                {lowerOrderData.map((order, index) => (
-                  <tr key={index} className="border-b border-gray-700 hover:bg-gray-700/20">
-                    <td className="font-mono text-sm text-green-400 py-1">
-                      {order.priceStr}
-                    </td>
-                    <td className="text-right font-mono text-sm text-gray-400 py-1">
-                      {order.amountStr}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-4"> 
         {/* Right side - Trading Panel */}
         <Card className="bg-slate-800 border-slate-700 shadow-2xl shadow-slate-900/50 border-border/50">
           <CardContent className="p-6">
@@ -705,7 +619,7 @@ const TradingInterface = () => {
                   </div>
 
                   {/* Buy Button */}
-                  <Button disabled={isCreating || buySliderValue[0] < 100 || !timeToSeconds(timeValue) || !buyIceberg || !buyTakeProfit} onClick={handleBuySubmit} className="w-full bg-green-600 hover:bg-green-700 text-white" size="lg">
+                  <Button disabled={isCreating || buySliderValue[0] < 100 } onClick={handleBuySubmit} className="w-full bg-green-600 hover:bg-green-700 text-white" size="lg">
                     Trade
                   </Button>
                 </div>
@@ -746,7 +660,7 @@ const TradingInterface = () => {
                   <div>
                     <label className="text-sm text-gray-400 mb-2 block">Total (USDT)</label>
                     <Input
-                      value={currentUser?.available_balance - ( sellPrice ? parseInt(sellPrice) : 0)}
+                      value={currentUser?.available_balance - ( buyPrice ? parseInt(buyPrice) : 0)}
                       className="font-mono"
                       placeholder="0"
                     />
@@ -843,7 +757,7 @@ const TradingInterface = () => {
                   </div>
 
                   {/* Sell Button */}
-                  <Button disabled={isCreating || sellSliderValue[0] < 100 || !timeToSeconds(timeValue) || !sellIceberg || !sellTakeProfit} onClick={handleSellSubmit} className="w-full bg-red-600 hover:bg-red-700 text-white" size="lg">
+                  <Button disabled={isCreating || sellSliderValue[0] < 100} onClick={handleSellSubmit} className="w-full bg-red-600 hover:bg-red-700 text-white" size="lg">
                     Trade
                   </Button>
                 </div>
@@ -851,9 +765,7 @@ const TradingInterface = () => {
             </Tabs>
           </CardContent>
         </Card>
-      </div>
+      
     </div>
   );
-};
-
-export default TradingInterface
+}

@@ -29,7 +29,13 @@ const HeroSection = () => {
     if (validateSignUpData(formData)) {
 
       try {
-        await signInMutation.mutateAsync(formData);
+       const sign_in =  await signInMutation.mutateAsync(formData);
+
+        if (!sign_in) {
+          return toast.error("failed to create an account please try again")
+        }
+
+        navigate("/buy")
         // Handle successful signup (e.g., redirect to dashboard)
         console.log('Account created successfully');
       } catch (error) {
@@ -68,7 +74,7 @@ const HeroSection = () => {
           </div>
 
           {/* Right Content - Registration Form */}
-          <div className="lg:max-w-md ml-auto">
+          <div className="lg:max-w-md w-full ml-auto">
             <div className="bg-slate-800 border  rounded-xl p-6 d">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-semibold text-slate-100">Registration</h3>
@@ -80,7 +86,7 @@ const HeroSection = () => {
 
               </div>
 
-              <form className="space-y-4 w-[400px]">
+              <form className="space-y-4  max-md:w-[320px]">
                 <Input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
